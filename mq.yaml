@@ -1,0 +1,17 @@
+dsn: "amqp://guest:guest@docker:5672"
+reconnect_delay: 1s
+exchanges:
+  - name: "invoice"
+    type: "topic"
+    options:
+      durable: true
+
+producers:
+  - name: "invoice_create"
+    exchange: "invoice"
+    routing_key: "invoice.created"
+    sync: true
+  - name: "invoice_render"
+    exchange: "invoice"
+    routing_key: "invoice.render"
+    sync: true
