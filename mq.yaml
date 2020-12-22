@@ -1,4 +1,3 @@
-dsn: "amqp://guest:guest@docker:5672"
 reconnect_delay: 1s
 exchanges:
   - name: "invoice"

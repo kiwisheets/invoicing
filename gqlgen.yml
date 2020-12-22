@@ -46,3 +46,9 @@ models:
   ID:
     model:
       - github.com/kiwisheets/orm/model.ID
+  Int:
+    model:
+      - github.com/99designs/gqlgen/graphql.Int
+  Int64:
+    model:
+      - github.com/99designs/gqlgen/graphql.Int64

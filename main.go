@@ -3,13 +3,15 @@ package main
 //go:generate go run github.com/99designs/gqlgen generate
 
 import (
-	"encoding/json"
 	"fmt"
-	"log"
+	"net/http"
+	"os"
 
 	"github.com/99designs/gqlgen/graphql/handler"
+	"github.com/aymerick/raymond"
 	"github.com/emvi/hide"
 	"github.com/kiwisheets/auth/directive"
+	"github.com/kiwisheets/gql-server/client"
 	"github.com/kiwisheets/invoicing/config"
 	"github.com/kiwisheets/invoicing/graphql/generated"
 	"github.com/kiwisheets/invoicing/graphql/resolver"
@@ -17,11 +19,28 @@ import (
 	"github.com/kiwisheets/orm"
 	"github.com/kiwisheets/server"
 	"github.com/kiwisheets/util"
+	"github.com/sirupsen/logrus"
 	"gorm.io/gorm/logger"
 )
 
 func main() {
 	cfg := config.Server()
+
+	logrus.SetOutput(os.Stdout)
+	if cfg.Environment == "development" {
+		logrus.SetLevel(logrus.DebugLevel)
+	} else {
+		logrus.SetLevel(logrus.InfoLevel)
+		logrus.SetFormatter(&logrus.JSONFormatter{})
+	}
+
+	raymond.RegisterHelper("total", func(invoice *model.InvoiceTemplateData) string {
+		return "$10.00"
+	})
+
+	raymond.RegisterHelper("itemtotal", func(item *model.LineItemInput) string {
+		return "$2.50"
+	})
 
 	hide.UseHash(hide.NewHashID(cfg.Hash.Salt, cfg.Hash.MinLength))
 
@@ -32,28 +51,30 @@ func main() {
 	if cfg.GraphQL.Environment == "development" {
 		db.Config.Logger = logger.Default.LogMode(logger.Info)
 		directive.Development(true)
+
+		db.Migrator().DropTable(&model.LineItem{})
+		db.Migrator().DropTable(&model.Invoice{})
 	}
 
 	db.AutoMigrate(&model.LineItem{})
 	db.AutoMigrate(&model.Invoice{})
 
-	i := model.Invoice{
-		Number:    1,
-		CompanyID: 1,
-		CreatedBy: 1,
-		Client:    1,
-		LineItems: []model.LineItem{
-			{
-				Name:        "Test Item",
-				Description: "Item description",
-				UnitCost:    2.50,
-				TaxRate:     util.Float64(0),
-				Quantity:    1,
-			},
-		},
-	}
+	// i := model.Invoice{
+	// 	CompanyID: 1,
+	// 	CreatedBy: 1,
+	// 	Client:    1,
+	// 	LineItems: []model.LineItem{
+	// 		{
+	// 			Name:        "Test Item",
+	// 			Description: "Item description",
+	// 			UnitCost:    2.50,
+	// 			TaxRate:     util.Float64(0),
+	// 			Quantity:    1,
+	// 		},
+	// 	},
+	// }
 
-	db.Create(&i)
+	// db.Create(&i)
 
 	// messaging
 
@@ -71,20 +92,12 @@ func main() {
 		panic(fmt.Errorf("failed to create producer: invoice_render: %s", err))
 	}
 
-	data, err := json.Marshal(model.Invoice{})
-	if err != nil {
-		panic(fmt.Errorf("failed to marshal invoice model: %s", err))
-	}
-	err = createProducer.Produce(data)
-	if err != nil {
-		log.Println("failed to produce message")
-	}
-
 	c := generated.Config{
 		Resolvers: &resolver.Resolver{
-			DB:             db,
-			CreateProducer: createProducer,
-			RenderProducer: renderProducer,
+			DB:              db,
+			CreateProducer:  createProducer,
+			RenderProducer:  renderProducer,
+			GqlServerClient: client.NewClient(http.DefaultClient, cfg.GqlServerURL),
 		},
 		Directives: generated.DirectiveRoot{
 			IsAuthenticated:       directive.IsAuthenticated,
@@ -107,6 +120,6 @@ func main() {
 
 func handleMQErrors(errors <-chan error) {
 	for err := range errors {
-		log.Printf("mq error: %s", err)
+		logrus.Printf("mq error: %s", err)
 	}
 }

@@ -1,10 +1,15 @@
-input CreateInvoiceInput {
-  number: Int
+input InvoiceInput {
   clientID: ID!
-  items: [CreateLineItemInput!]!
+  items: [LineItemInput!]!
 }
 
-input CreateLineItemInput {
+input PreviewInvoiceInput {
+  number: Int64!
+  clientID: ID!
+  items: [LineItemInput!]!
+}
+
+input LineItemInput {
   name: String!
   description: String!
   unitCost: Float!
@@ -14,7 +19,7 @@ input CreateLineItemInput {
 
 type Invoice {
   id: ID!
-  number: Int!
+  number: Int64!
   createdBy: User!
   client: Client!
   items: [LineItem!]! @goField(forceResolver: true)
@@ -40,10 +45,14 @@ extend type User @key(fields: "id") {
 extend type Query {
   invoice(id: ID!): Invoice! @hasPerm(perm: "Invoice:Read")
   invoices(page: Int): [Invoice!]! @hasPerm(perm: "Invoice:Read")
+
+  previewInvoice(invoice: PreviewInvoiceInput!): String! @hasPerm(perm: "Invoice:Read")
 }
 
 extend type Mutation {
-  createInvoice(invoice: CreateInvoiceInput!): Invoice! @hasPerm(perm: "Invoice:Create")
+  createInvoice(invoice: InvoiceInput!): Invoice! @hasPerm(perm: "Invoice:Create")
+
+  updateInvoice(invoice: InvoiceInput!): Invoice! @hasPerm(perm: "Invoice:Update")
 
   createInvoicePdf(id: ID!): String! @hasPerm(perm: "Invoice:Read")
 }

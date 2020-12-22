@@ -3,7 +3,7 @@ terraform {
     organization = "KiwiSheets"
 
     workspaces {
-      name = "KiwiSheets-GraphQL-Server-Dev"
+      name = "KiwiSheets-Invoicing-Dev"
     }
   }
 }
@@ -21,30 +21,24 @@ resource "random_password" "postgres_password" {
   special = false
 }
 
-resource "random_password" "jwt_secret" {
-  length  = 32
-  special = false
-}
-
-resource "random_password" "hash_salt" {
-  length  = 32
-  special = false
-}
-
-resource "vault_generic_secret" "gql_server" {
-  path = "secret/gql-server"
+resource "vault_generic_secret" "invoicing" {
+  path = "secret/invoicing"
 
   data_json = jsonencode({
     postgres_password = random_password.postgres_password.result
-    jwt_secret        = random_password.jwt_secret.result
-    hash_salt         = random_password.hash_salt.result
   })
 }
 
-resource "vault_policy" "gql_server" {
-  name = "gql-server"
+resource "vault_policy" "invoicing" {
+  name = "invoicing"
 
   policy = <<EOT
+path "secret/invoicing" {
+  capabilities = ["read"]
+}
+path "secret/data/invoicing" {
+  capabilities = ["read"]
+}
 path "secret/gql-server" {
   capabilities = ["read"]
 }
@@ -54,12 +48,29 @@ path "secret/data/gql-server" {
 EOT
 }
 
-resource "nomad_job" "gql_server" {
-  jobspec = templatefile("${path.module}/jobs/gqlserver.hcl", {
+resource "consul_intention" "postgres" {
+  source_name      = "invoicing"
+  destination_name = "invoicing-postgres"
+  action           = "allow"
+}
+
+resource "consul_intention" "rabbit" {
+  source_name      = "invoicing"
+  destination_name = "rabbitmq"
+  action           = "allow"
+}
+
+resource "consul_intention" "gql_server" {
+  source_name      = "invoicing"
+  destination_name = "gql-server"
+  action           = "allow"
+}
+
+resource "nomad_job" "invoicing" {
+  jobspec = templatefile("${path.module}/jobs/job.hcl", {
     datacenter = var.datacenter
     image_tag  = var.image_tag
     instance   = var.instance_count
-    host       = var.host
   })
   detach = false
 }

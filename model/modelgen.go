@@ -13,18 +13,23 @@ type Client struct {
 
 func (Client) IsEntity() {}
 
-type CreateInvoiceInput struct {
-	Number   *int                   `json:"number"`
-	ClientID hide.ID                `json:"clientID"`
-	Items    []*CreateLineItemInput `json:"items"`
+type InvoiceInput struct {
+	ClientID hide.ID          `json:"clientID"`
+	Items    []*LineItemInput `json:"items"`
 }
 
-type CreateLineItemInput struct {
+type LineItemInput struct {
 	Name        string   `json:"name"`
 	Description string   `json:"description"`
 	UnitCost    float64  `json:"unitCost"`
 	TaxRate     *float64 `json:"taxRate"`
 	Quantity    float64  `json:"quantity"`
+}
+
+type PreviewInvoiceInput struct {
+	Number   int64            `json:"number"`
+	ClientID hide.ID          `json:"clientID"`
+	Items    []*LineItemInput `json:"items"`
 }
 
 type User struct {

@@ -7,14 +7,22 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
+	"strconv"
 
 	"github.com/emvi/hide"
 	"github.com/google/uuid"
 	"github.com/kiwisheets/auth"
 	"github.com/kiwisheets/invoicing/graphql/generated"
+	"github.com/kiwisheets/invoicing/helper"
 	"github.com/kiwisheets/invoicing/model"
 	"github.com/kiwisheets/util"
+	"gorm.io/gorm/clause"
 )
+
+func (r *invoiceResolver) Number(ctx context.Context, obj *model.Invoice) (int64, error) {
+	return obj.Number.Number, nil
+}
 
 func (r *invoiceResolver) CreatedBy(ctx context.Context, obj *model.Invoice) (*model.User, error) {
 	return &model.User{
@@ -34,29 +42,48 @@ func (r *invoiceResolver) Items(ctx context.Context, obj *model.Invoice) ([]*mod
 	return lineItems, nil
 }
 
-func (r *mutationResolver) CreateInvoice(ctx context.Context, invoice model.CreateInvoiceInput) (*model.Invoice, error) {
-	lineItems := make([]model.LineItem, 0)
-
-	for _, l := range invoice.Items {
-		lineItems = append(lineItems, model.LineItem{
+func (r *mutationResolver) CreateInvoice(ctx context.Context, invoice model.InvoiceInput) (*model.Invoice, error) {
+	lineItems := make([]model.LineItem, len(invoice.Items))
+	for i, l := range invoice.Items {
+		lineItems[i] = model.LineItem{
 			Description: l.Description,
 			Name:        l.Name,
 			Quantity:    l.Quantity,
 			TaxRate:     l.TaxRate,
 			UnitCost:    l.UnitCost,
-		})
+		}
 	}
 
 	newInvoice := &model.Invoice{
 		Client:    invoice.ClientID,
 		CreatedBy: auth.For(ctx).UserID,
+		CompanyID: auth.For(ctx).CompanyID,
 		LineItems: lineItems,
-		Number:    1,
+		Number: model.InvoiceNumber{
+			CompanyID: auth.For(ctx).CompanyID,
+		},
 	}
 
-	r.DB.Create(&newInvoice)
+	r.DB.Exec("CREATE SEQUENCE IF NOT EXISTS invoice_number_" + strconv.FormatInt(int64(auth.For(ctx).CompanyID), 10) + " AS BIGINT INCREMENT 1 START 1 OWNED BY invoices.number")
+
+	err := r.DB.Debug().Clauses(clause.Returning{
+		Columns: []clause.Column{
+			clause.PrimaryColumn,
+			{
+				Table: clause.CurrentTable,
+				Name:  "NUMBER",
+			},
+		},
+	}).Create(&newInvoice).Error
+	if err != nil {
+		return nil, err
+	}
 
 	return newInvoice, nil
+}
+
+func (r *mutationResolver) UpdateInvoice(ctx context.Context, invoice model.InvoiceInput) (*model.Invoice, error) {
+	panic(fmt.Errorf("not implemented"))
 }
 
 func (r *mutationResolver) CreateInvoicePdf(ctx context.Context, id hide.ID) (string, error) {
@@ -97,6 +124,22 @@ func (r *queryResolver) Invoices(ctx context.Context, page *int) ([]*model.Invoi
 	r.DB.Where("company_id = ?", auth.For(ctx).CompanyID).Limit(limit).Offset(limit * *page).Find(&invoices)
 
 	return invoices, nil
+}
+
+func (r *queryResolver) PreviewInvoice(ctx context.Context, invoice model.PreviewInvoiceInput) (string, error) {
+	// load template and exec, return html
+	client, err := r.GqlServerClient.GetClientByID(ctx, invoice.ClientID, func(req *http.Request) {
+		req.Header.Set("user", auth.For(ctx).OriginalHeader)
+	})
+	if err != nil {
+		return "", err
+	}
+
+	return helper.RenderInvoice(&model.InvoiceTemplateData{
+		Number: invoice.Number,
+		Items:  invoice.Items,
+		Client: client,
+	})
 }
 
 // Invoice returns generated.InvoiceResolver implementation.

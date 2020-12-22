@@ -1,13 +1,18 @@
 package model
 
 import (
+	"time"
+
 	"github.com/emvi/hide"
-	orm "github.com/kiwisheets/orm/model"
+	"github.com/kiwisheets/gql-server/client"
 )
 
 type Invoice struct {
-	orm.SoftDelete
-	Number    int
+	ID        hide.ID `gorm:"type: bigserial;primary_key" json:"id"` // int64
+	CreatedAt time.Time
+	UpdatedAt time.Time
+	DeletedAt *time.Time
+	Number    InvoiceNumber `gorm:"default:1"`
 	CompanyID hide.ID
 	CreatedBy hide.ID
 	Client    hide.ID
@@ -18,4 +23,10 @@ type Invoice struct {
 type InvoiceRenderMQ struct {
 	Invoice      Invoice
 	NotifyConfig Notify
+}
+
+type InvoiceTemplateData struct {
+	Number int64
+	Client *client.GetClientByID
+	Items  []*LineItemInput
 }

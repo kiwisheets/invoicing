@@ -6,10 +6,10 @@ import (
 	"github.com/maxtroughear/goenv"
 )
 
-func Server() *util.ServerConfig {
+func Server() *Config {
 	godotenv.Load()
 
-	return &util.ServerConfig{
+	return &Config{
 		Version: goenv.MustGet("APP_VERSION"),
 		Hash: util.HashConfig{
 			Salt:      goenv.MustGetSecretFromEnv("HASH_SALT"),
@@ -33,5 +33,6 @@ func Server() *util.ServerConfig {
 			Database:       goenv.MustGet("POSTGRES_DB"),
 			MaxConnections: goenv.CanGetInt32("POSTGRES_MAX_CONNECTIONS", 20),
 		},
+		GqlServerURL: goenv.MustGet("GQL_SERVER_URL"),
 	}
 }

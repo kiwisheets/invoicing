@@ -13,7 +13,8 @@ job "invoicing" {
         volumes = [
           "secrets/db-password.secret:/run/secrets/db-password.secret",
           "secrets/jwt-secret-key.secret:/run/secrets/jwt-secret-key.secret",
-          "secrets/hash-salt.secret:/run/secrets/hash-salt.secret"
+          "secrets/hash-salt.secret:/run/secrets/hash-salt.secret",
+          "secrets/rabbitmq-dsn.secret:/run/secrets/rabbitmq-dsn.secret"
         ]
       }
 
@@ -30,24 +31,30 @@ job "invoicing" {
         POSTGRES_MAX_CONNECTIONS = 20
         HASH_SALT_FILE = "/run/secrets/hash-salt.secret"
         HASH_MIN_LENGTH = 10
+        RABBITMQ_DSN_FILE = "/run/secrets/rabbitmq-dsn.secret"
+        GQL_SERVER_URL = "http://localhost:8000/graphql"
       }
 
       template {
-        data = <<EOF
-{{with secret "secret/data/invoicing"}}{{.Data.data.postgres_password}}{{end}}
-        EOF
+        data = "{{with secret \"secret/data/invoicing\"}}{{.Data.data.postgres_password}}{{end}}"
         destination = "secrets/db-password.secret"
       }
 
       template {
-        data = <<EOF
-{{with secret "secret/data/gql-server"}}{{.Data.data.hash_salt}}{{end}}
-        EOF
+        data = "{{with secret \"secret/data/gql-server\"}}{{.Data.data.hash_salt}}{{end}}"
         destination = "secrets/hash-salt.secret"
       }
 
+      template {
+        data = "amqp://admin:{{with secret \"secret/data/rabbitmq\"}}{{.Data.data.rabbitmq_password}}{{end}}@localhost:5672"
+        destination = "secrets/rabbitmq-dsn.secret"
+      }
+
       vault {
-        policies = ["invoicing"]
+        policies = [
+          "invoicing", 
+          "rabbitmq"
+        ]
       }
 
       resources {
@@ -70,7 +77,15 @@ job "invoicing" {
           proxy {
             upstreams {
               destination_name = "invoicing-postgres"
-              local_bind_port = 5432
+              local_bind_port  = 5432
+            }
+            upstreams {
+              destination_name = "rabbitmq"
+              local_bind_port  = 5672
+            }
+            upstreams {
+              destination_name = "gql-server"
+              local_bind_port  = 8000
             }
             expose {
               path {
@@ -123,9 +138,7 @@ job "invoicing" {
       }
 
       template {
-        data = <<EOF
-{{with secret "secret/data/invoicing"}}{{.Data.data.postgres_password}}{{end}}
-        EOF
+        data = "{{with secret \"secret/data/invoicing\"}}{{.Data.data.postgres_password}}{{end}}"
         destination = "secrets/db-password.secret"
       }
 

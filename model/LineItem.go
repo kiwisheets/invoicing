@@ -1,12 +1,15 @@
 package model
 
 import (
+	"time"
+
 	"github.com/emvi/hide"
-	orm "github.com/kiwisheets/orm/model"
 )
 
 type LineItem struct {
-	orm.Model
+	ID          hide.ID `gorm:"type: bigserial;primary_key" json:"id"` // int64
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
 	InvoiceID   hide.ID
 	Name        string
 	Description string
