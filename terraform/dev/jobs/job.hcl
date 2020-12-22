@@ -28,6 +28,7 @@ job "invoicing" {
         POSTGRES_USER = "invoicing"
         POSTGRES_PASSWORD_FILE = "/run/secrets/db-password.secret"
         POSTGRES_MAX_CONNECTIONS = 20
+        REDIS_ADDRESS = "$${NOMAD_UPSTREAM_ADDR_invoicing-redis}"
         HASH_SALT_FILE = "/run/secrets/hash-salt.secret"
         HASH_MIN_LENGTH = 10
         RABBITMQ_DSN_FILE = "/run/secrets/rabbitmq-dsn.secret"
@@ -77,6 +78,10 @@ job "invoicing" {
             upstreams {
               destination_name = "invoicing-postgres"
               local_bind_port  = 5432
+            }
+            upstreams {
+              destination_name = "invoicing-redis"
+              local_bind_port = 6379
             }
             upstreams {
               destination_name = "rabbitmq"
@@ -153,6 +158,38 @@ job "invoicing" {
     service {
        name = "invoicing-postgres"
        port = "5432"
+
+      connect {
+        sidecar_service {}
+
+        sidecar_task {
+          resources {
+            cpu    = 20
+            memory = 32
+          }
+        }
+      }
+    }
+  }
+
+  group "redis" {
+    count = 1
+
+    task "redis" {
+      driver = "docker"
+
+      config {
+        image = "redis:latest"
+      }
+    }
+
+    network {
+      mode = "bridge"
+    }
+
+    service {
+      name = "invoicing-redis"
+      port = "6379"
 
       connect {
         sidecar_service {}

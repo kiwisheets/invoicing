@@ -54,6 +54,12 @@ resource "consul_intention" "postgres" {
   action           = "allow"
 }
 
+resource "consul_intention" "redis" {
+  source_name      = "invoicing"
+  destination_name = "invoicing-redis"
+  action           = "allow"
+}
+
 resource "consul_intention" "rabbit" {
   source_name      = "invoicing"
   destination_name = "rabbitmq"
