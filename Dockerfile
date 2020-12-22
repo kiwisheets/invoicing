@@ -9,12 +9,10 @@ COPY . .
 
 RUN CGO_ENABLED=0 go build -o main .
 
-WORKDIR /dist
-
-RUN cp /build/main .
-
 FROM debian:buster-slim
 
-COPY --from=build /dist/main /
+COPY mq.yaml ./
+
+COPY --from=build /build/main /
 
 CMD [ "/main" ]
