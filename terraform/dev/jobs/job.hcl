@@ -12,7 +12,6 @@ job "invoicing" {
 
         volumes = [
           "secrets/db-password.secret:/run/secrets/db-password.secret",
-          "secrets/jwt-secret-key.secret:/run/secrets/jwt-secret-key.secret",
           "secrets/hash-salt.secret:/run/secrets/hash-salt.secret",
           "secrets/rabbitmq-dsn.secret:/run/secrets/rabbitmq-dsn.secret"
         ]

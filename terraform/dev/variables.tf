@@ -11,8 +11,3 @@ variable "instance_count" {
   type        = number
   description = "number of server instances to launch"
 }
-
-variable "host" {
-  type        = string
-  description = "API host"
-}
