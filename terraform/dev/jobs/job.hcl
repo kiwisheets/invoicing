@@ -149,6 +149,11 @@ job "invoicing" {
       vault {
         policies = ["invoicing"]
       }
+
+      resources {
+        cpu    = 50
+        memory = 64
+      }
     }
     
     network {
@@ -180,6 +185,11 @@ job "invoicing" {
 
       config {
         image = "redis:latest"
+      }
+
+      resources {
+        cpu    = 50
+        memory = 64
       }
     }
 
