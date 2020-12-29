@@ -114,6 +114,9 @@ func main() {
 	// register dataloader
 	// router.Use(dataloaderMiddleware)
 
+	// TODO: POSTSTART (no poststart) update apollo federated graph using endpoint, isolated script task
+	// Find way to do this
+
 	server.Run()
 
 }

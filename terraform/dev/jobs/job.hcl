@@ -58,8 +58,8 @@ job "invoicing" {
       }
 
       resources {
-        cpu    = 256
-        memory = 256
+        cpu    = 64
+        memory = 64
       }
     }
 
