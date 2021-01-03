@@ -17,6 +17,7 @@ import (
 	"github.com/kiwisheets/invoicing/helper"
 	"github.com/kiwisheets/invoicing/model"
 	"github.com/kiwisheets/util"
+	"github.com/sirupsen/logrus"
 	"gorm.io/gorm/clause"
 )
 
@@ -132,6 +133,7 @@ func (r *queryResolver) PreviewInvoice(ctx context.Context, invoice model.Previe
 		req.Header.Set("user", auth.For(ctx).OriginalHeader)
 	})
 	if err != nil {
+		logrus.Warn(err)
 		return "", err
 	}
 

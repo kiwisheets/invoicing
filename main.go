@@ -94,10 +94,15 @@ func main() {
 
 	c := generated.Config{
 		Resolvers: &resolver.Resolver{
-			DB:              db,
-			CreateProducer:  createProducer,
-			RenderProducer:  renderProducer,
-			GqlServerClient: client.NewClient(http.DefaultClient, cfg.GqlServerURL),
+			DB:             db,
+			CreateProducer: createProducer,
+			RenderProducer: renderProducer,
+			GqlServerClient: client.NewClient(http.DefaultClient, cfg.GqlServerURL, func(req *http.Request) {
+				if cfg.CfClientID != "" && cfg.CfClientSecret != "" {
+					req.Header.Set("CF-Access-Client-Id", cfg.CfClientID)
+					req.Header.Set("CF-Access-Client-Secret", cfg.CfClientSecret)
+				}
+			}),
 		},
 		Directives: generated.DirectiveRoot{
 			IsAuthenticated:       directive.IsAuthenticated,

@@ -6,3 +6,5 @@
 *.tfstate
 *.tfstate.*
 __debug_bin
+
+.env

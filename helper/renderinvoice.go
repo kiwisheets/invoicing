@@ -10,7 +10,7 @@ import (
 )
 
 func RenderInvoice(invoice *model.InvoiceTemplateData) (string, error) {
-	tpl, err := raymond.ParseFile("templates/basic.handlebars")
+	tpl, err := raymond.ParseFile("templates/invoice1.handlebars")
 	if err != nil {
 		logrus.Errorf("error parsing template %s", err)
 		return "", err
