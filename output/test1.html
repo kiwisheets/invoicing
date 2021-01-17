@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang=en>
+<meta charset=utf-8>
+<meta http-equiv=x-ua-compatible content="IE=edge">
+<meta name=viewport content="width=device-width,initial-scale=1">
+<title>Invoice</title>
+<link rel=stylesheet href=https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css
+  integrity=sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u crossorigin=anonymous>
+<link href="https://fonts.googleapis.com/css?family=Montserrat:400,500,600,700" rel=stylesheet>
+<style>
+  .back {}
+
+  .invoice-wrapper {
+    margin: 20px auto;
+    max-width: 700px;
+    box-shadow: 0 3px 6px #00000029, 0 3px 6px #0000003b
+  }
+
+  .invoice-top {
+    background-color: #fafafa;
+    padding: 40px 60px
+  }
+
+  .invoice-top-left {
+    margin-top: 60px
+  }
+
+  .invoice-top-left h2,
+  .invoice-top-left h6 {
+    line-height: 1.5;
+    font-family: montserrat, sans-serif
+  }
+
+  .invoice-top-left h4 {
+    margin-top: 30px;
+    font-family: montserrat, sans-serif
+  }
+
+  .invoice-top-left h5 {
+    line-height: 1.4;
+    font-family: montserrat, sans-serif;
+    font-weight: 400
+  }
+
+  .client-company-name {
+    font-size: 20px;
+    font-weight: 600;
+    margin-bottom: 0
+  }
+
+  .client-address {
+    font-size: 14px;
+    margin-top: 5px;
+    color: #000000bf
+  }
+
+  .invoice-top-right h2,
+  .invoice-top-right h6 {
+    text-align: right;
+    line-height: 1.5;
+    font-family: montserrat, sans-serif
+  }
+
+  .invoice-top-right h5 {
+    line-height: 1.4;
+    font-family: montserrat, sans-serif;
+    font-weight: 400;
+    text-align: right;
+    margin-top: 0
+  }
+
+  .our-company-name {
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 0
+  }
+
+  .our-address {
+    font-size: 13px;
+    margin-top: 0;
+    color: #000000bf
+  }
+
+  .logo-wrapper {
+    overflow: auto
+  }
+
+  .invoice-bottom {
+    background-color: #fff;
+    padding: 40px 60px;
+    position: relative
+  }
+
+  .title {
+    font-size: 30px;
+    font-family: montserrat, sans-serif;
+    font-weight: 600;
+    margin-bottom: 30px
+  }
+
+  .invoice-bottom-left h5,
+  .invoice-bottom-left h4 {
+    font-family: montserrat, sans-serif
+  }
+
+  .invoice-bottom-left h4 {
+    font-weight: 400
+  }
+
+  .terms {
+    font-family: montserrat, sans-serif;
+    font-size: 14px;
+    margin-top: 40px
+  }
+
+  .divider {
+    margin-top: 50px;
+    margin-bottom: 5px
+  }
+
+  .bottom-bar {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 26px;
+    background-color: #323149
+  }
+</style>
+<section class=back>
+  <div class=container>
+    <div class=row>
+      <div class=col-xs-12>
+        <div class=invoice-wrapper>
+          <div class=invoice-top>
+            <div class=row>
+              <div class=col-sm-6>
+                <div class=invoice-top-left>
+                  <h2 class=client-company-name>3B</h2>
+                  <h6 class=client-address>123 Make Believe Street<br>Auckland<br>New Zealand</h6>
+                  <h4>Reference</h4>
+                  <h5>UX Design &amp; Development for<br>Android App.</h5>
+                </div>
+              </div>
+              <div class=col-sm-6>
+                <div class=invoice-top-right>
+                  <h2 class=our-company-name>Service Admins</h2>
+                  <h6 class=our-address>123 Some Street<br>Auckland<br>New Zealand</h6>
+                  <div class=logo-wrapper><img src=./Acme.png class="img-responsive pull-right logo"></div>
+                  <h5>06 September 2017</h5>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class=invoice-bottom>
+            <div class=row>
+              <div class=col-xs-12>
+                <h2 class=title>Invoice</h2>
+              </div>
+              <div class=clearfix></div>
+              <div class="col-sm-3 col-md-3">
+                <div class=invoice-bottom-left>
+                  <h5>Invoice No.</h5>
+                  <h4>1</h4>
+                </div>
+              </div>
+              <div class="col-md-offset-1 col-md-8 col-sm-9">
+                <div class=invoice-bottom-right>
+                  <table class=table>
+                    <thead>
+                      <tr>
+                        <th>Qty
+                        <th>Description
+                        <th>Price
+                    <tbody>
+                      <tr>
+                        <td>1
+                        <td>Initial research
+                        <td>₹10,000
+                      <tr>
+                        <td>1
+                        <td>UX design
+                        <td>₹35,000
+                      <tr>
+                        <td>1
+                        <td>Web app development
+                        <td>₹50,000
+                      <tr style=height:40px>
+                        <thead>
+                          <tr>
+                            <th>Total
+                            <th>
+                            <th>₹95,000
+                  </table>
+                  <h4 class=terms>Terms</h4>
+                  <ul>
+                    <li>Invoice to be paid in advance.
+                    <li>Make payment in 2,3 business days.
+                  </ul>
+                </div>
+              </div>
+              <div class=clearfix></div>
+              <div class=col-xs-12>
+                <hr class=divider>
+              </div>
+              <div class=col-sm-4>
+                <h6 class=text-left>acme.com</h6>
+              </div>
+              <div class=col-sm-4>
+                <h6 class=text-center>contact@acme.com</h6>
+              </div>
+              <div class=col-sm-4>
+                <h6 class=text-right>+91 8097678988</h6>
+              </div>
+            </div>
+            <div class=bottom-bar></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+<script src=https://code.jquery.com/jquery-3.2.1.slim.min.js
+  integrity="sha256-k2WSCIexGzOj3Euiig+TlR8gA0EmPjuc79OEeY5L45g=" crossorigin=anonymous></script>
+<script src=https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js
+  integrity=sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa crossorigin=anonymous></script>

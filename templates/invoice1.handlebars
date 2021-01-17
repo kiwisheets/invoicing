@@ -163,20 +163,44 @@ bottom-bar is colored bar located at bottom of invoice-card
 							<div class="row">
 								<div class="col-sm-6">
 									<div class="invoice-top-left">
-										<h2 class="client-company-name">Google Inc.</h2>
-										<h6 class="client-address">31 Lake Floyd Circle, <br>Delaware, AC 987869 <br>India</h6>
+										{{#with client.client}}
+										<h2 class="client-company-name">{{name}}</h2>
+										<h6 class="client-address">
+											{{billingAddress.street1}}<br>
+											{{#if billingAddress.street2}}
+											{{billingAddress.street2}}<br>
+											{{/if}}
+											{{billingAddress.city}} {{billingAddress.postCode}}<br>
+											{{#if billingAddress.state}}
+											{{billingAddress.state}}
+											{{/if}}
+											{{billingAddress.country}}
+										</h6>
 										<h4>Reference</h4>
 										<h5>UX Design &amp; Development for <br> Android App.</h5>
+										{{/with}}
 									</div>
 								</div>
 								<div class="col-sm-6">
 									<div class="invoice-top-right">
-										<h2 class="our-company-name">Acme LLP</h2>
-										<h6 class="our-address">477 Blackwell Street, <br>Dry Creek, Alaska <br>India</h6>
+										{{#with company.company}}
+										<h2 class="our-company-name">{{name}}</h2>
+										<h6 class="our-address">
+											{{billingAddress.street1}}<br>
+											{{#if billingAddress.street2}}
+											{{billingAddress.street2}}<br>
+											{{/if}}
+											{{billingAddress.city}} {{billingAddress.postCode}}<br>
+											{{#if billingAddress.state}}
+											{{billingAddress.state}}
+											{{/if}}
+											{{billingAddress.country}}
+										</h6>
 										<div class="logo-wrapper">
 											<img src="./Acme.png" class="img-responsive pull-right logo" />
 										</div>
 										<h5>06 September 2017</h5>
+										{{/with}}
 									</div>
 								</div>
 							</div>
@@ -191,7 +215,7 @@ bottom-bar is colored bar located at bottom of invoice-card
 								<div class="col-sm-3 col-md-3">
 									<div class="invoice-bottom-left">
 										<h5>Invoice No.</h5>
-										<h4>BJI 009872</h4>
+										<h4>{{number}}</h4>
 									</div>
 								</div>
 								<div class="col-md-offset-1 col-md-8 col-sm-9">

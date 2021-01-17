@@ -19,6 +19,7 @@ import (
 	"github.com/kiwisheets/orm"
 	"github.com/kiwisheets/server"
 	"github.com/kiwisheets/util"
+	"github.com/sethgrid/pester"
 	"github.com/sirupsen/logrus"
 	"gorm.io/gorm/logger"
 )
@@ -97,7 +98,7 @@ func main() {
 			DB:             db,
 			CreateProducer: createProducer,
 			RenderProducer: renderProducer,
-			GqlServerClient: client.NewClient(http.DefaultClient, cfg.GqlServerURL, func(req *http.Request) {
+			GqlServerClient: client.NewClient(pester.New(), cfg.GqlServerURL, func(req *http.Request) {
 				if cfg.CfClientID != "" && cfg.CfClientSecret != "" {
 					req.Header.Set("CF-Access-Client-Id", cfg.CfClientID)
 					req.Header.Set("CF-Access-Client-Secret", cfg.CfClientSecret)

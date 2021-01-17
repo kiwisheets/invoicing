@@ -26,7 +26,8 @@ type InvoiceRenderMQ struct {
 }
 
 type InvoiceTemplateData struct {
-	Number int64
-	Client *client.GetClientByID
-	Items  []*LineItemInput
+	Number  int64
+	Client  *client.GetClientByID
+	Company *client.GetCompany
+	Items   []*LineItemInput
 }

@@ -97,7 +97,7 @@ func (r *mutationResolver) CreateInvoicePdf(ctx context.Context, id hide.ID) (st
 		Invoice: invoice,
 		NotifyConfig: model.Notify{
 			Users: []int64{
-				int64(auth.For(ctx).UserID),
+				int64(auth.For(ctx).UserID), // notify rendering user when invoice is rendered
 			},
 		},
 	})
@@ -137,10 +137,19 @@ func (r *queryResolver) PreviewInvoice(ctx context.Context, invoice model.Previe
 		return "", err
 	}
 
+	company, err := r.GqlServerClient.GetCompany(ctx, func(req *http.Request) {
+		req.Header.Set("user", auth.For(ctx).OriginalHeader)
+	})
+	if err != nil {
+		logrus.Warn(err)
+		return "", err
+	}
+
 	return helper.RenderInvoice(&model.InvoiceTemplateData{
-		Number: invoice.Number,
-		Items:  invoice.Items,
-		Client: client,
+		Number:  invoice.Number,
+		Items:   invoice.Items,
+		Client:  client,
+		Company: company,
 	})
 }
 
