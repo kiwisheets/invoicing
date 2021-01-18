@@ -9,10 +9,12 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"sync"
 
 	"github.com/emvi/hide"
 	"github.com/google/uuid"
 	"github.com/kiwisheets/auth"
+	gqlServerClient "github.com/kiwisheets/gql-server/client"
 	"github.com/kiwisheets/invoicing/graphql/generated"
 	"github.com/kiwisheets/invoicing/helper"
 	"github.com/kiwisheets/invoicing/model"
@@ -129,21 +131,32 @@ func (r *queryResolver) Invoices(ctx context.Context, page *int) ([]*model.Invoi
 
 func (r *queryResolver) PreviewInvoice(ctx context.Context, invoice model.PreviewInvoiceInput) (string, error) {
 	// load template and exec, return html
-	client, err := r.GqlServerClient.GetClientByID(ctx, invoice.ClientID, func(req *http.Request) {
-		req.Header.Set("user", auth.For(ctx).OriginalHeader)
-	})
-	if err != nil {
-		logrus.Warn(err)
-		return "", err
-	}
 
-	company, err := r.GqlServerClient.GetCompany(ctx, func(req *http.Request) {
-		req.Header.Set("user", auth.For(ctx).OriginalHeader)
-	})
-	if err != nil {
-		logrus.Warn(err)
-		return "", err
-	}
+	var client *gqlServerClient.GetClientByID
+	var company *gqlServerClient.GetCompany
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		var err error
+		company, err = r.GqlServerClient.GetCompany(ctx, func(req *http.Request) {
+			req.Header.Set("user", auth.For(ctx).OriginalHeader)
+		})
+		if err != nil {
+			logrus.Warn(err)
+		}
+	}()
+	go func() {
+		defer wg.Done()
+		var err error
+		client, err = r.GqlServerClient.GetClientByID(ctx, invoice.ClientID, func(req *http.Request) {
+			req.Header.Set("user", auth.For(ctx).OriginalHeader)
+		})
+		if err != nil {
+			logrus.Warn(err)
+		}
+	}()
+	wg.Wait()
 
 	return helper.RenderInvoice(&model.InvoiceTemplateData{
 		Number:  invoice.Number,

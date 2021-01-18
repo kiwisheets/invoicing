@@ -60,22 +60,11 @@ func main() {
 	db.AutoMigrate(&model.LineItem{})
 	db.AutoMigrate(&model.Invoice{})
 
-	// i := model.Invoice{
-	// 	CompanyID: 1,
-	// 	CreatedBy: 1,
-	// 	Client:    1,
-	// 	LineItems: []model.LineItem{
-	// 		{
-	// 			Name:        "Test Item",
-	// 			Description: "Item description",
-	// 			UnitCost:    2.50,
-	// 			TaxRate:     util.Float64(0),
-	// 			Quantity:    1,
-	// 		},
-	// 	},
-	// }
-
-	// db.Create(&i)
+	// create models owned by the invoice domain
+	// db.AutoMigrate(&gqlservermodel.Company{})
+	// db.AutoMigrate(&gqlservermodel.Client{})
+	// db.AutoMigrate(&gqlservermodel.Contact{})
+	// db.AutoMigrate(&gqlservermodel.Address{})
 
 	// messaging
 
