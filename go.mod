@@ -10,7 +10,7 @@ require (
 	github.com/emvi/hide v1.1.1
 	github.com/google/uuid v1.1.5
 	github.com/joho/godotenv v1.3.0
-	github.com/kiwisheets/auth v0.0.8
+	github.com/kiwisheets/auth v0.0.9
 	github.com/kiwisheets/gql-server v0.0.4
 	github.com/kiwisheets/orm v0.0.1
 	github.com/kiwisheets/server v0.0.10
