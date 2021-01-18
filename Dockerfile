@@ -13,6 +13,8 @@ FROM debian:buster-slim
 
 COPY mq.yaml ./
 
+COPY templates/ ./templates/
+
 COPY --from=build /build/main /
 
 CMD [ "/main" ]
