@@ -64,10 +64,14 @@ func (h *NrHook) Fire(entry *logrus.Entry) error {
 		request.Header.Add("Accept", "*/*")
 		request.Header.Add("X-License-Key", h.licenseKey)
 
-		_, err = h.client.Do(request)
+		res, err := h.client.Do(request)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "error sending log request to NR: %v", err)
 		}
+		if res != nil {
+			fmt.Fprintf(os.Stderr, "nrhook status code: %v", res.Status)
+		}
+
 	}(line)
 
 	return nil
