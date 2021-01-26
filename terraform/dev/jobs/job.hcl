@@ -75,6 +75,9 @@ job "invoicing" {
     network {
       mode = "bridge"
       port "health" {}
+      dns {
+        servers = ["1.1.1.1", "1.0.0.1"]
+      }
     }
 
     service {
