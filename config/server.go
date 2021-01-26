@@ -10,7 +10,8 @@ func Server() *Config {
 	godotenv.Load()
 
 	return &Config{
-		Version: goenv.MustGet("APP_VERSION"),
+		Version:     goenv.MustGet("APP_VERSION"),
+		Environment: goenv.MustGet("ENVIRONMENT"),
 		Hash: util.HashConfig{
 			Salt:      goenv.MustGetSecretFromEnv("HASH_SALT"),
 			MinLength: goenv.CanGetInt32("HASH_MIN_LENGTH", 10),

@@ -6,34 +6,70 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"time"
+
+	"github.com/kiwisheets/auth/directive"
+	"github.com/kiwisheets/gql-server/client"
+	"github.com/kiwisheets/orm"
+	"github.com/kiwisheets/server"
+	"github.com/kiwisheets/util"
+	"github.com/maxtroughear/goenv"
+
+	"github.com/kiwisheets/invoicing/config"
+	"github.com/kiwisheets/invoicing/graphql/generated"
+	"github.com/kiwisheets/invoicing/graphql/resolver"
+	"github.com/kiwisheets/invoicing/logger"
+	"github.com/kiwisheets/invoicing/model"
+	"github.com/kiwisheets/invoicing/nrextension"
+	"github.com/kiwisheets/invoicing/nrhook"
 
 	"github.com/99designs/gqlgen/graphql/handler"
 	"github.com/aymerick/raymond"
 	"github.com/emvi/hide"
-	"github.com/kiwisheets/auth/directive"
-	"github.com/kiwisheets/gql-server/client"
-	"github.com/kiwisheets/invoicing/config"
-	"github.com/kiwisheets/invoicing/graphql/generated"
-	"github.com/kiwisheets/invoicing/graphql/resolver"
-	"github.com/kiwisheets/invoicing/model"
-	"github.com/kiwisheets/orm"
-	"github.com/kiwisheets/server"
-	"github.com/kiwisheets/util"
+	"github.com/newrelic/go-agent/v3/integrations/logcontext/nrlogrusplugin"
+	"github.com/newrelic/go-agent/v3/newrelic"
 	"github.com/sethgrid/pester"
 	"github.com/sirupsen/logrus"
-	"gorm.io/gorm/logger"
+	gormlogger "gorm.io/gorm/logger"
+)
+
+const (
+	appName = "Invoicing"
 )
 
 func main() {
 	cfg := config.Server()
 
+	nrLicenseKey := goenv.MustGetSecretFromEnv("NR_LICENSE_KEY")
+
 	logrus.SetOutput(os.Stdout)
+	logrus.SetFormatter(nrlogrusplugin.ContextFormatter{})
+	logrus.AddHook(nrhook.NewNrHook(appName, nrLicenseKey))
 	if cfg.Environment == "development" {
 		logrus.SetLevel(logrus.DebugLevel)
 	} else {
 		logrus.SetLevel(logrus.InfoLevel)
-		logrus.SetFormatter(&logrus.JSONFormatter{})
 	}
+
+	hostname, _ := os.Hostname()
+	log := logrus.WithFields(logrus.Fields{
+		"service":  appName,
+		"env":      cfg.Environment,
+		"hostname": hostname,
+	})
+
+	app, err := newrelic.NewApplication(
+		newrelic.ConfigAppName(appName),
+		newrelic.ConfigLicense(nrLicenseKey),
+		newrelic.ConfigDistributedTracerEnabled(true),
+		func(cfg *newrelic.Config) {
+			cfg.ErrorCollector.RecordPanics = true
+		},
+	)
+	if err != nil {
+		logrus.Errorf("failed to start new relic agent %v", err)
+	}
+	defer app.Shutdown(30 * time.Second)
 
 	raymond.RegisterHelper("total", func(invoice *model.InvoiceTemplateData) string {
 		return "$10.00"
@@ -50,7 +86,7 @@ func main() {
 	defer sqlDB.Close()
 
 	if cfg.GraphQL.Environment == "development" {
-		db.Config.Logger = logger.Default.LogMode(logger.Info)
+		db.Config.Logger = gormlogger.Default.LogMode(gormlogger.Info)
 		directive.Development(true)
 
 		db.Migrator().DropTable(&model.LineItem{})
@@ -104,13 +140,17 @@ func main() {
 
 	gqlHandler := handler.New(generated.NewExecutableSchema(c))
 
+	gqlHandler.Use(logger.LogrusExtension{
+		Logger: log,
+	})
+	gqlHandler.Use(nrextension.NrExtension{
+		NrApp: app,
+	})
+
 	server.Setup(gqlHandler, &cfg.GraphQL, db)
 
 	// register dataloader
 	// router.Use(dataloaderMiddleware)
-
-	// TODO: POSTSTART (no poststart) update apollo federated graph using endpoint, isolated script task
-	// Find way to do this
 
 	server.Run()
 

@@ -31,8 +31,7 @@
   },
   "go.languageServerExperimentalFeatures": {
     "format": true,
-    "diagnostics": true,
-    "documentLink": false
+    "diagnostics": true
   },
   "go.autocompleteUnimportedPackages": true,
 }

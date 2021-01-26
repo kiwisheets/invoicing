@@ -13,7 +13,8 @@ job "invoicing" {
         volumes = [
           "secrets/db-password.secret:/run/secrets/db-password.secret",
           "secrets/hash-salt.secret:/run/secrets/hash-salt.secret",
-          "secrets/rabbitmq-dsn.secret:/run/secrets/rabbitmq-dsn.secret"
+          "secrets/rabbitmq-dsn.secret:/run/secrets/rabbitmq-dsn.secret",
+          "secrets/newrelic-license.secret:/run/secrets/newrelic-license.secret"
         ]
       }
 
@@ -22,6 +23,7 @@ job "invoicing" {
         API_PATH = "/graphql"
         PORT = 3000
         ENVIRONMENT = "production"
+        GIN_MODE = "release"
         POSTGRES_HOST = "$${NOMAD_UPSTREAM_IP_invoicing-postgres}"
         POSTGRES_PORT = "$${NOMAD_UPSTREAM_PORT_invoicing-postgres}"
         POSTGRES_DB = "invoicing"
@@ -32,6 +34,7 @@ job "invoicing" {
         HASH_SALT_FILE = "/run/secrets/hash-salt.secret"
         HASH_MIN_LENGTH = 10
         RABBITMQ_DSN_FILE = "/run/secrets/rabbitmq-dsn.secret"
+        NR_LICENSE_KEY_FILE = "/run/secrets/newrelic-license.secret"
         GQL_SERVER_URL = "http://localhost:8000/graphql"
       }
 
@@ -50,10 +53,16 @@ job "invoicing" {
         destination = "secrets/rabbitmq-dsn.secret"
       }
 
+      template {
+        data = "{{with secret \"secret/data/newrelic\"}}{{.Data.data.license}}{{end}}"
+        destination = "secrets/newrelic-license.secret"
+      }
+
       vault {
         policies = [
           "invoicing", 
-          "rabbitmq"
+          "rabbitmq",
+          "newrelic"
         ]
       }
 

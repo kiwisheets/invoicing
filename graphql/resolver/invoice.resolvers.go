@@ -17,9 +17,10 @@ import (
 	gqlServerClient "github.com/kiwisheets/gql-server/client"
 	"github.com/kiwisheets/invoicing/graphql/generated"
 	"github.com/kiwisheets/invoicing/helper"
+	"github.com/kiwisheets/invoicing/logger"
 	"github.com/kiwisheets/invoicing/model"
 	"github.com/kiwisheets/util"
-	"github.com/sirupsen/logrus"
+	"github.com/newrelic/go-agent/v3/newrelic"
 	"gorm.io/gorm/clause"
 )
 
@@ -131,30 +132,51 @@ func (r *queryResolver) Invoices(ctx context.Context, page *int) ([]*model.Invoi
 
 func (r *queryResolver) PreviewInvoice(ctx context.Context, invoice model.PreviewInvoiceInput) (string, error) {
 	// load template and exec, return html
+	log := logger.From(ctx)
+
+	tx := newrelic.FromContext(ctx)
+
+	log.Info("preview invoice test")
 
 	var client *gqlServerClient.GetClientByID
 	var company *gqlServerClient.GetCompany
 	var wg sync.WaitGroup
+
 	wg.Add(2)
 	go func() {
 		defer wg.Done()
 		var err error
+
+		var es *newrelic.ExternalSegment
+
 		company, err = r.GqlServerClient.GetCompany(ctx, func(req *http.Request) {
+			es = newrelic.StartExternalSegment(tx, req)
 			req.Header.Set("user", auth.For(ctx).OriginalHeader)
 		})
 		if err != nil {
-			logrus.Warn(err)
+			log.Warn(err)
 		}
+
+		defer es.End()
+		es.Procedure = "GetCompany"
 	}()
+
 	go func() {
 		defer wg.Done()
 		var err error
+
+		var es *newrelic.ExternalSegment
+
 		client, err = r.GqlServerClient.GetClientByID(ctx, invoice.ClientID, func(req *http.Request) {
+			es = newrelic.StartExternalSegment(tx, req)
 			req.Header.Set("user", auth.For(ctx).OriginalHeader)
 		})
 		if err != nil {
-			logrus.Warn(err)
+			log.Warn(err)
 		}
+
+		defer es.End()
+		es.Procedure = "GetClientByID"
 	}()
 	wg.Wait()
 
