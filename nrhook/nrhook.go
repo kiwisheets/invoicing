@@ -68,7 +68,7 @@ func (h *NrHook) Fire(entry *logrus.Entry) error {
 			log.Printf("error sending log request to NR: %v", err)
 		}
 		if res != nil {
-			fmt.Fprintf(os.Stderr, "nrhook status code: %v", res.Status)
+			log.Printf("nrhook status code: %v", res.Status)
 		}
 
 	}(line)
