@@ -4,7 +4,8 @@ terraform {
       source = "hashicorp/nomad"
     }
     consul = {
-      source = "hashicorp/consul"
+      source  = "hashicorp/consul"
+      version = "2.10.1"
     }
     vault = {
       source = "hashicorp/vault"
