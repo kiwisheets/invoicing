@@ -14,14 +14,14 @@ import (
 	"github.com/kiwisheets/server"
 	"github.com/kiwisheets/util"
 	"github.com/maxtroughear/goenv"
+	"github.com/maxtroughear/logrusextension"
+	"github.com/maxtroughear/logrusnrhook"
+	"github.com/maxtroughear/nrextension"
 
 	"github.com/kiwisheets/invoicing/config"
 	"github.com/kiwisheets/invoicing/graphql/generated"
 	"github.com/kiwisheets/invoicing/graphql/resolver"
-	"github.com/kiwisheets/invoicing/logger"
 	"github.com/kiwisheets/invoicing/model"
-	"github.com/kiwisheets/invoicing/nrextension"
-	"github.com/kiwisheets/invoicing/nrhook"
 
 	"github.com/99designs/gqlgen/graphql/handler"
 	"github.com/aymerick/raymond"
@@ -45,7 +45,7 @@ func main() {
 
 	logrus.SetOutput(os.Stdout)
 	logrus.SetFormatter(nrlogrusplugin.ContextFormatter{})
-	logrus.AddHook(nrhook.NewNrHook(appName, nrLicenseKey))
+	logrus.AddHook(logrusnrhook.NewNrHook(appName, nrLicenseKey, true))
 	if cfg.Environment == "development" {
 		logrus.SetLevel(logrus.DebugLevel)
 	} else {
@@ -142,7 +142,7 @@ func main() {
 
 	gqlHandler := handler.New(generated.NewExecutableSchema(c))
 
-	gqlHandler.Use(logger.LogrusExtension{
+	gqlHandler.Use(logrusextension.LogrusExtension{
 		Logger: log,
 	})
 	gqlHandler.Use(nrextension.NrExtension{

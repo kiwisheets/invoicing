@@ -16,7 +16,10 @@ require (
 	github.com/kiwisheets/server v0.0.10
 	github.com/kiwisheets/util v0.0.9
 	github.com/maxtroughear/goenv v0.0.3
-	github.com/newrelic/go-agent/v3 v3.0.0
+	github.com/maxtroughear/logrusextension v0.0.1
+	github.com/maxtroughear/logrusnrhook v0.0.2
+	github.com/maxtroughear/nrextension v0.0.1
+	github.com/newrelic/go-agent/v3 v3.10.0
 	github.com/newrelic/go-agent/v3/integrations/logcontext/nrlogrusplugin v1.0.0
 	github.com/newrelic/go-agent/v3/integrations/nrlogrus v1.0.0
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect

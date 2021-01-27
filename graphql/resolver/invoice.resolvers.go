@@ -17,9 +17,9 @@ import (
 	gqlServerClient "github.com/kiwisheets/gql-server/client"
 	"github.com/kiwisheets/invoicing/graphql/generated"
 	"github.com/kiwisheets/invoicing/helper"
-	"github.com/kiwisheets/invoicing/logger"
 	"github.com/kiwisheets/invoicing/model"
 	"github.com/kiwisheets/util"
+	"github.com/maxtroughear/logrusextension"
 	"github.com/newrelic/go-agent/v3/newrelic"
 	"gorm.io/gorm/clause"
 )
@@ -132,11 +132,9 @@ func (r *queryResolver) Invoices(ctx context.Context, page *int) ([]*model.Invoi
 
 func (r *queryResolver) PreviewInvoice(ctx context.Context, invoice model.PreviewInvoiceInput) (string, error) {
 	// load template and exec, return html
-	log := logger.From(ctx)
+	log := logrusextension.From(ctx)
 
 	tx := newrelic.FromContext(ctx)
-
-	log.Info("preview invoice test")
 
 	var client *gqlServerClient.GetClientByID
 	var company *gqlServerClient.GetCompany
