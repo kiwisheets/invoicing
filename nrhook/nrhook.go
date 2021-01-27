@@ -37,8 +37,6 @@ func (h *NrHook) Fire(entry *logrus.Entry) error {
 		return err
 	}
 
-	// fmt.Fprintf(os.Stderr, "Line: %v", line)
-
 	// fire and forget
 	go func(line string) {
 		var buffer bytes.Buffer
@@ -63,12 +61,9 @@ func (h *NrHook) Fire(entry *logrus.Entry) error {
 		request.Header.Add("Accept", "*/*")
 		request.Header.Add("X-License-Key", h.licenseKey)
 
-		res, err := h.client.Do(request)
+		_, err = h.client.Do(request)
 		if err != nil {
 			log.Printf("error sending log request to NR: %v", err)
-		}
-		if res != nil {
-			log.Printf("nrhook status code: %v", res.Status)
 		}
 
 	}(line)
