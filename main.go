@@ -27,6 +27,7 @@ import (
 	"github.com/aymerick/raymond"
 	"github.com/emvi/hide"
 	"github.com/newrelic/go-agent/v3/integrations/logcontext/nrlogrusplugin"
+	"github.com/newrelic/go-agent/v3/integrations/nrlogrus"
 	"github.com/newrelic/go-agent/v3/newrelic"
 	"github.com/sethgrid/pester"
 	"github.com/sirupsen/logrus"
@@ -65,6 +66,7 @@ func main() {
 		func(cfg *newrelic.Config) {
 			cfg.ErrorCollector.RecordPanics = true
 		},
+		newrelic.ConfigLogger(nrlogrus.StandardLogger()),
 	)
 	if err != nil {
 		logrus.Errorf("failed to start new relic agent %v", err)
