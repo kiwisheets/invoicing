@@ -74,7 +74,9 @@ job "invoicing" {
 
     network {
       mode = "bridge"
-      port "health" {}
+      port "health" {
+        to = -1
+      }
       dns {
         servers = ["1.1.1.1", "1.0.0.1"]
       }
@@ -126,8 +128,8 @@ job "invoicing" {
         type     = "http"
         path     = "/health"
         port     = "health"
-        interval = "2s"
-        timeout  = "2s"
+        interval = "10s"
+        timeout  = "3s"
       }
     }
   }
