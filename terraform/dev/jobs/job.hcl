@@ -125,11 +125,12 @@ job "invoicing" {
       }
 
       check {
-        type     = "http"
-        path     = "/health"
-        port     = "health"
-        interval = "10s"
-        timeout  = "3s"
+        address_mode = "alloc"
+        type         = "http"
+        path         = "/health"
+        port         = "health"
+        interval     = "10s"
+        timeout      = "3s"
       }
     }
   }
