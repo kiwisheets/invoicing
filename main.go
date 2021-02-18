@@ -36,7 +36,8 @@ func main() {
 	}
 
 	raymond.RegisterHelper("total", model.InvoiceTotalHelper)
-	raymond.RegisterHelper("itemtotal", model.InvoiceItemTotalHelper)
+	raymond.RegisterHelper("itemCost", model.InvoiceItemCostHelper)
+	raymond.RegisterHelper("itemTotal", model.InvoiceItemTotalHelper)
 
 	db := orm.Init(&cfg.Database)
 	sqlDB, _ := db.DB()

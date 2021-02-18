@@ -42,6 +42,11 @@ func InvoiceTotalHelper(invoice *InvoiceTemplateData) string {
 	return ac.FormatMoneyFloat64(total)
 }
 
+func InvoiceItemCostHelper(item *LineItemInput) string {
+	ac := accounting.DefaultAccounting("$", 2)
+	return ac.FormatMoneyFloat64(item.UnitCost)
+}
+
 func InvoiceItemTotalHelper(item *LineItemInput) string {
 	total := item.Quantity * item.UnitCost
 
