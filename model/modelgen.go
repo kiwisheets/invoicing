@@ -6,28 +6,22 @@ import (
 	"github.com/emvi/hide"
 )
 
-type Client struct {
-	ID       hide.ID    `json:"id"`
-	Invoices []*Invoice `json:"invoices"`
-}
-
-func (Client) IsEntity() {}
-
 type InvoiceInput struct {
 	ClientID hide.ID          `json:"clientID"`
 	Items    []*LineItemInput `json:"items"`
 }
 
 type LineItemInput struct {
-	Name        string   `json:"name"`
-	Description string   `json:"description"`
-	UnitCost    float64  `json:"unitCost"`
-	TaxRate     *float64 `json:"taxRate"`
-	Quantity    float64  `json:"quantity"`
+	Name         string   `json:"name"`
+	Description  string   `json:"description"`
+	UnitCost     float64  `json:"unitCost"`
+	TaxRate      *float64 `json:"taxRate"`
+	Quantity     float64  `json:"quantity"`
+	TaxInclusive *bool    `json:"taxInclusive"`
 }
 
 type PreviewInvoiceInput struct {
-	Number   int64            `json:"number"`
+	Number   int              `json:"number"`
 	ClientID hide.ID          `json:"clientID"`
 	Items    []*LineItemInput `json:"items"`
 }

@@ -15,6 +15,7 @@ require (
 	github.com/kiwisheets/orm v0.0.1
 	github.com/kiwisheets/server v0.0.10
 	github.com/kiwisheets/util v0.0.9
+	github.com/leekchan/accounting v1.0.0
 	github.com/maxtroughear/goenv v0.0.3
 	github.com/maxtroughear/logrusextension v0.0.1
 	github.com/maxtroughear/logrusnrhook v0.0.2

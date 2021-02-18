@@ -5,7 +5,6 @@ package main
 import (
 	"fmt"
 	"net/http"
-	"os"
 	"time"
 
 	"github.com/kiwisheets/auth/directive"
@@ -13,96 +12,37 @@ import (
 	"github.com/kiwisheets/orm"
 	"github.com/kiwisheets/server"
 	"github.com/kiwisheets/util"
-	"github.com/maxtroughear/goenv"
 	"github.com/maxtroughear/logrusextension"
-	"github.com/maxtroughear/logrusnrhook"
 	"github.com/maxtroughear/nrextension"
 
 	"github.com/kiwisheets/invoicing/config"
 	"github.com/kiwisheets/invoicing/graphql/generated"
-	"github.com/kiwisheets/invoicing/graphql/resolver"
+	"github.com/kiwisheets/invoicing/graphqlapi"
 	"github.com/kiwisheets/invoicing/model"
+	"github.com/kiwisheets/invoicing/resolver"
 
 	"github.com/99designs/gqlgen/graphql/handler"
 	"github.com/aymerick/raymond"
-	"github.com/emvi/hide"
-	"github.com/newrelic/go-agent/v3/integrations/logcontext/nrlogrusplugin"
-	"github.com/newrelic/go-agent/v3/integrations/nrlogrus"
-	"github.com/newrelic/go-agent/v3/newrelic"
 	"github.com/sethgrid/pester"
 	"github.com/sirupsen/logrus"
-	gormlogger "gorm.io/gorm/logger"
-)
-
-const (
-	appName = "Invoicing"
 )
 
 func main() {
 	cfg := config.Server()
 
-	nrLicenseKey := goenv.MustGetSecretFromEnv("NR_LICENSE_KEY")
-
-	logrus.SetOutput(os.Stdout)
-	logrus.SetFormatter(nrlogrusplugin.ContextFormatter{})
-	logrus.AddHook(logrusnrhook.NewNrHook(appName, nrLicenseKey, true))
-	if cfg.Environment == "development" {
-		logrus.SetLevel(logrus.DebugLevel)
-	} else {
-		logrus.SetLevel(logrus.InfoLevel)
+	app := graphqlapi.NewDefault()
+	if app.NrApp != nil {
+		defer app.NrApp.Shutdown(30 * time.Second)
 	}
 
-	hostname, _ := os.Hostname()
-	log := logrus.WithFields(logrus.Fields{
-		"service":  appName,
-		"env":      cfg.Environment,
-		"hostname": hostname,
-	})
-
-	app, err := newrelic.NewApplication(
-		newrelic.ConfigAppName(appName),
-		newrelic.ConfigLicense(nrLicenseKey),
-		newrelic.ConfigDistributedTracerEnabled(true),
-		func(cfg *newrelic.Config) {
-			cfg.ErrorCollector.RecordPanics = true
-		},
-		newrelic.ConfigLogger(nrlogrus.StandardLogger()),
-	)
-	if err != nil {
-		logrus.Errorf("failed to start new relic agent %v", err)
-	}
-	defer app.Shutdown(30 * time.Second)
-
-	raymond.RegisterHelper("total", func(invoice *model.InvoiceTemplateData) string {
-		return "$10.00"
-	})
-
-	raymond.RegisterHelper("itemtotal", func(item *model.LineItemInput) string {
-		return "$2.50"
-	})
-
-	hide.UseHash(hide.NewHashID(cfg.Hash.Salt, cfg.Hash.MinLength))
+	raymond.RegisterHelper("total", model.InvoiceTotalHelper)
+	raymond.RegisterHelper("itemtotal", model.InvoiceItemTotalHelper)
 
 	db := orm.Init(&cfg.Database)
 	sqlDB, _ := db.DB()
 	defer sqlDB.Close()
 
-	if cfg.GraphQL.Environment == "development" {
-		db.Config.Logger = gormlogger.Default.LogMode(gormlogger.Info)
-		directive.Development(true)
-
-		db.Migrator().DropTable(&model.LineItem{})
-		db.Migrator().DropTable(&model.Invoice{})
-	}
-
-	db.AutoMigrate(&model.LineItem{})
-	db.AutoMigrate(&model.Invoice{})
-
-	// create models owned by the invoice domain
-	// db.AutoMigrate(&gqlservermodel.Company{})
-	// db.AutoMigrate(&gqlservermodel.Client{})
-	// db.AutoMigrate(&gqlservermodel.Contact{})
-	// db.AutoMigrate(&gqlservermodel.Address{})
+	model.Migrate(db)
 
 	// messaging
 
@@ -143,10 +83,10 @@ func main() {
 	gqlHandler := handler.New(generated.NewExecutableSchema(c))
 
 	gqlHandler.Use(logrusextension.LogrusExtension{
-		Logger: log,
+		Logger: app.Logger,
 	})
 	gqlHandler.Use(nrextension.NrExtension{
-		NrApp: app,
+		NrApp: app.NrApp,
 	})
 
 	server.Setup(gqlHandler, &cfg.GraphQL, db)

@@ -5,6 +5,7 @@ package resolver
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/emvi/hide"
 	"github.com/kiwisheets/invoicing/graphql/generated"
@@ -19,6 +20,10 @@ func (r *entityResolver) FindClientByID(ctx context.Context, id hide.ID) (*model
 		ID:       id,
 		Invoices: invoices,
 	}, nil
+}
+
+func (r *entityResolver) FindCompanyByID(ctx context.Context, id hide.ID) (*model.Company, error) {
+	panic(fmt.Errorf("not implemented"))
 }
 
 // Entity returns generated.EntityResolver implementation.

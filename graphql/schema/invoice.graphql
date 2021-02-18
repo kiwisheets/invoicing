@@ -4,7 +4,7 @@ input InvoiceInput {
 }
 
 input PreviewInvoiceInput {
-  number: Int64!
+  number: Int!
   clientID: ID!
   items: [LineItemInput!]!
 }
@@ -15,11 +15,12 @@ input LineItemInput {
   unitCost: Float!
   taxRate: Float
   quantity: Float!
+  taxInclusive: Boolean # uses company setting if unspecified
 }
 
 type Invoice {
   id: ID!
-  number: Int64!
+  number: Int!
   createdBy: User!
   client: Client!
   items: [LineItem!]! @goField(forceResolver: true)
@@ -31,6 +32,7 @@ type LineItem {
   unitCost: Float!
   taxRate: Float
   quantity: Float!
+  taxInclusive: Boolean!
 }
 
 extend type Client @key(fields: "id") {
@@ -40,6 +42,11 @@ extend type Client @key(fields: "id") {
 
 extend type User @key(fields: "id") {
   id: ID! @external
+}
+
+extend type Company @key(fields: "id") {
+  id: ID! @external
+  invoiceTaxInclusive: Boolean!
 }
 
 extend type Query {
@@ -55,4 +62,6 @@ extend type Mutation {
   updateInvoice(invoice: InvoiceInput!): Invoice! @hasPerm(perm: "Invoice:Update")
 
   createInvoicePdf(id: ID!): String! @hasPerm(perm: "Invoice:Read")
+
+  updateCompanyTaxInclusive(invoiceTaxInclusive: Boolean!): Company! @hasPerm(perm: "Company:Write")
 }

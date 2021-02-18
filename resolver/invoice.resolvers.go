@@ -7,14 +7,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"net/http"
 	"strconv"
 	"sync"
 
 	"github.com/emvi/hide"
 	"github.com/google/uuid"
 	"github.com/kiwisheets/auth"
-	gqlServerClient "github.com/kiwisheets/gql-server/client"
 	"github.com/kiwisheets/invoicing/graphql/generated"
 	"github.com/kiwisheets/invoicing/helper"
 	"github.com/kiwisheets/invoicing/model"
@@ -24,7 +22,7 @@ import (
 	"gorm.io/gorm/clause"
 )
 
-func (r *invoiceResolver) Number(ctx context.Context, obj *model.Invoice) (int64, error) {
+func (r *invoiceResolver) Number(ctx context.Context, obj *model.Invoice) (int, error) {
 	return obj.Number.Number, nil
 }
 
@@ -36,7 +34,7 @@ func (r *invoiceResolver) CreatedBy(ctx context.Context, obj *model.Invoice) (*m
 
 func (r *invoiceResolver) Client(ctx context.Context, obj *model.Invoice) (*model.Client, error) {
 	return &model.Client{
-		ID: obj.Client,
+		ID: obj.ClientID,
 	}, nil
 }
 
@@ -44,6 +42,10 @@ func (r *invoiceResolver) Items(ctx context.Context, obj *model.Invoice) ([]*mod
 	lineItems := make([]*model.LineItem, 0)
 	r.DB.Where("invoice_id = ?", obj.ID).Find(&lineItems)
 	return lineItems, nil
+}
+
+func (r *lineItemResolver) TaxInclusive(ctx context.Context, obj *model.LineItem) (bool, error) {
+	panic(fmt.Errorf("not implemented"))
 }
 
 func (r *mutationResolver) CreateInvoice(ctx context.Context, invoice model.InvoiceInput) (*model.Invoice, error) {
@@ -59,7 +61,7 @@ func (r *mutationResolver) CreateInvoice(ctx context.Context, invoice model.Invo
 	}
 
 	newInvoice := &model.Invoice{
-		Client:    invoice.ClientID,
+		ClientID:  invoice.ClientID,
 		CreatedBy: auth.For(ctx).UserID,
 		CompanyID: auth.For(ctx).CompanyID,
 		LineItems: lineItems,
@@ -111,8 +113,13 @@ func (r *mutationResolver) CreateInvoicePdf(ctx context.Context, id hide.ID) (st
 	return notifyID.String(), nil
 }
 
+func (r *mutationResolver) UpdateCompanyTaxInclusive(ctx context.Context, invoiceTaxInclusive bool) (*model.Company, error) {
+	panic(fmt.Errorf("not implemented"))
+}
+
 func (r *queryResolver) Invoice(ctx context.Context, id hide.ID) (*model.Invoice, error) {
 	var invoice model.Invoice
+
 	if err := r.DB.Where(id).Where("company_id = ?", auth.For(ctx).CompanyID).Find(&invoice).Error; err != nil {
 		return nil, fmt.Errorf("invoice not found")
 	}
@@ -136,45 +143,34 @@ func (r *queryResolver) PreviewInvoice(ctx context.Context, invoice model.Previe
 
 	tx := newrelic.FromContext(ctx)
 
-	var client *gqlServerClient.GetClientByID
-	var company *gqlServerClient.GetCompany
 	var wg sync.WaitGroup
+	var company model.Company
+	var client model.Client
 
 	wg.Add(2)
 	go func() {
 		defer wg.Done()
 		var err error
+		txg := tx.NewGoroutine()
+		ctxg := newrelic.NewContext(ctx, txg)
 
-		var es *newrelic.ExternalSegment
+		company, err = model.GetCompany(ctxg, r.DB, r.GqlServerClient, auth.For(ctx).CompanyID)
 
-		company, err = r.GqlServerClient.GetCompany(ctx, func(req *http.Request) {
-			es = newrelic.StartExternalSegment(tx, req)
-			req.Header.Set("user", auth.For(ctx).OriginalHeader)
-		})
 		if err != nil {
 			log.Warn(err)
 		}
-
-		defer es.End()
-		es.Procedure = "GetCompany"
 	}()
 
 	go func() {
 		defer wg.Done()
 		var err error
+		txg := tx.NewGoroutine()
+		ctxg := newrelic.NewContext(ctx, txg)
 
-		var es *newrelic.ExternalSegment
-
-		client, err = r.GqlServerClient.GetClientByID(ctx, invoice.ClientID, func(req *http.Request) {
-			es = newrelic.StartExternalSegment(tx, req)
-			req.Header.Set("user", auth.For(ctx).OriginalHeader)
-		})
+		client, err = model.GetClient(ctxg, r.DB, r.GqlServerClient, invoice.ClientID)
 		if err != nil {
 			log.Warn(err)
 		}
-
-		defer es.End()
-		es.Procedure = "GetClientByID"
 	}()
 	wg.Wait()
 
@@ -189,6 +185,9 @@ func (r *queryResolver) PreviewInvoice(ctx context.Context, invoice model.Previe
 // Invoice returns generated.InvoiceResolver implementation.
 func (r *Resolver) Invoice() generated.InvoiceResolver { return &invoiceResolver{r} }
 
+// LineItem returns generated.LineItemResolver implementation.
+func (r *Resolver) LineItem() generated.LineItemResolver { return &lineItemResolver{r} }
+
 // Mutation returns generated.MutationResolver implementation.
 func (r *Resolver) Mutation() generated.MutationResolver { return &mutationResolver{r} }
 
@@ -196,5 +195,6 @@ func (r *Resolver) Mutation() generated.MutationResolver { return &mutationResol
 func (r *Resolver) Query() generated.QueryResolver { return &queryResolver{r} }
 
 type invoiceResolver struct{ *Resolver }
+type lineItemResolver struct{ *Resolver }
 type mutationResolver struct{ *Resolver }
 type queryResolver struct{ *Resolver }

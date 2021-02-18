@@ -11,7 +11,7 @@ import (
 )
 
 type InvoiceNumber struct {
-	Number    int64
+	Number    int
 	CompanyID hide.ID
 }
 
@@ -26,7 +26,7 @@ func (n InvoiceNumber) GormValue(ctx context.Context, db *gorm.DB) clause.Expr {
 }
 
 func (n *InvoiceNumber) Scan(v interface{}) error {
-	logrus.Debugf("scanning InvoiceNumber", n.Number)
-	n.Number = v.(int64)
+	n.Number = v.(int)
+	logrus.Debugf("scanning InvoiceNumber %f", n.Number)
 	return nil
 }

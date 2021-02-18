@@ -163,7 +163,7 @@ bottom-bar is colored bar located at bottom of invoice-card
 							<div class="row">
 								<div class="col-sm-6">
 									<div class="invoice-top-left">
-										{{#with client.client}}
+										{{#with client}}
 										<h2 class="client-company-name">{{name}}</h2>
 										<h6 class="client-address">
 											{{billingAddress.street1}}<br>
@@ -183,7 +183,7 @@ bottom-bar is colored bar located at bottom of invoice-card
 								</div>
 								<div class="col-sm-6">
 									<div class="invoice-top-right">
-										{{#with company.company}}
+										{{#with company}}
 										<h2 class="our-company-name">{{name}}</h2>
 										<h6 class="our-address">
 											{{billingAddress.street1}}<br>

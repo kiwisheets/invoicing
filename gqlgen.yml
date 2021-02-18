@@ -20,7 +20,7 @@ model:
 # Where should the resolver implementations go?
 resolver:
   layout: follow-schema
-  dir: graphql/resolver
+  dir: resolver
   package: resolver
 
 # Optional: turn on use `gqlgen:"fieldName"` tags in your models
@@ -49,6 +49,3 @@ models:
   Int:
     model:
       - github.com/99designs/gqlgen/graphql.Int
-  Int64:
-    model:
-      - github.com/99designs/gqlgen/graphql.Int64

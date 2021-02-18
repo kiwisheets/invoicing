@@ -12,10 +12,6 @@ func Server() *Config {
 	return &Config{
 		Version:     goenv.MustGet("APP_VERSION"),
 		Environment: goenv.MustGet("ENVIRONMENT"),
-		Hash: util.HashConfig{
-			Salt:      goenv.MustGetSecretFromEnv("HASH_SALT"),
-			MinLength: goenv.CanGetInt32("HASH_MIN_LENGTH", 10),
-		},
 		GraphQL: util.GqlConfig{
 			ComplexityLimit:   200,
 			Environment:       goenv.MustGet("ENVIRONMENT"),
