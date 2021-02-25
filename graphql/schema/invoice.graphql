@@ -1,26 +1,6 @@
-input InvoiceInput {
-  clientID: ID!
-  items: [LineItemInput!]!
-}
-
-input PreviewInvoiceInput {
-  number: Int!
-  clientID: ID!
-  items: [LineItemInput!]!
-}
-
-input LineItemInput {
-  name: String!
-  description: String!
-  unitCost: Float!
-  taxRate: Float
-  quantity: Float!
-  taxInclusive: Boolean # uses company setting if unspecified
-}
-
 type Invoice {
   id: ID!
-  number: Int!
+  number: String! # javascript does not support 64 bit integers
   createdBy: User!
   client: Client!
   items: [LineItem!]! @goField(forceResolver: true)
@@ -49,11 +29,25 @@ extend type Company @key(fields: "id") {
   invoiceTaxInclusive: Boolean!
 }
 
+input InvoiceInput {
+  clientID: ID!
+  items: [LineItemInput!]!
+}
+
+input LineItemInput {
+  name: String!
+  description: String!
+  unitCost: Float!
+  taxRate: Float
+  quantity: Float!
+  taxInclusive: Boolean # uses company setting if unspecified
+}
+
 extend type Query {
   invoice(id: ID!): Invoice! @hasPerm(perm: "Invoice:Read")
   invoices(page: Int): [Invoice!]! @hasPerm(perm: "Invoice:Read")
 
-  previewInvoice(invoice: PreviewInvoiceInput!): String! @hasPerm(perm: "Invoice:Read")
+  previewInvoice(invoice: InvoiceInput!): String! @hasPerm(perm: "Invoice:Read")
 }
 
 extend type Mutation {

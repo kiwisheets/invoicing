@@ -1,6 +1,6 @@
 module github.com/kiwisheets/invoicing
 
-go 1.15
+go 1.16
 
 require (
 	github.com/99designs/gqlgen v0.13.0
@@ -22,7 +22,6 @@ require (
 	github.com/maxtroughear/nrextension v0.0.1
 	github.com/newrelic/go-agent/v3 v3.10.0
 	github.com/newrelic/go-agent/v3/integrations/logcontext/nrlogrusplugin v1.0.0
-	github.com/newrelic/go-agent/v3/integrations/nrlogrus v1.0.0
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/sethgrid/pester v1.1.0
 	github.com/sirupsen/logrus v1.7.0

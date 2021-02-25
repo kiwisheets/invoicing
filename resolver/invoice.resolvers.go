@@ -22,8 +22,8 @@ import (
 	"gorm.io/gorm/clause"
 )
 
-func (r *invoiceResolver) Number(ctx context.Context, obj *model.Invoice) (int, error) {
-	return obj.Number.Number, nil
+func (r *invoiceResolver) Number(ctx context.Context, obj *model.Invoice) (string, error) {
+	return strconv.FormatInt(obj.Number.Number, 10), nil
 }
 
 func (r *invoiceResolver) CreatedBy(ctx context.Context, obj *model.Invoice) (*model.User, error) {
@@ -137,7 +137,7 @@ func (r *queryResolver) Invoices(ctx context.Context, page *int) ([]*model.Invoi
 	return invoices, nil
 }
 
-func (r *queryResolver) PreviewInvoice(ctx context.Context, invoice model.PreviewInvoiceInput) (string, error) {
+func (r *queryResolver) PreviewInvoice(ctx context.Context, invoice model.InvoiceInput) (string, error) {
 	// load template and exec, return html
 	log := logrusextension.From(ctx)
 
@@ -174,8 +174,16 @@ func (r *queryResolver) PreviewInvoice(ctx context.Context, invoice model.Previe
 	}()
 	wg.Wait()
 
+	// get next number from postgres
+	var nextNumber int64
+	if err := r.DB.Raw("SELECT last_value FROM invoice_number_" + strconv.FormatInt(int64(auth.For(ctx).CompanyID), 10)).Scan(&nextNumber).Error; err != nil {
+		nextNumber = 1
+	} else {
+		nextNumber++ // use next in sequence
+	}
+
 	return helper.RenderInvoice(&model.InvoiceTemplateData{
-		Number:  invoice.Number,
+		Number:  int(nextNumber),
 		Items:   invoice.Items,
 		Client:  client,
 		Company: company,

@@ -20,12 +20,6 @@ type LineItemInput struct {
 	TaxInclusive *bool    `json:"taxInclusive"`
 }
 
-type PreviewInvoiceInput struct {
-	Number   int              `json:"number"`
-	ClientID hide.ID          `json:"clientID"`
-	Items    []*LineItemInput `json:"items"`
-}
-
 type User struct {
 	ID hide.ID `json:"id"`
 }

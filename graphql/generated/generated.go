@@ -96,7 +96,7 @@ type ComplexityRoot struct {
 	Query struct {
 		Invoice            func(childComplexity int, id hide.ID) int
 		Invoices           func(childComplexity int, page *int) int
-		PreviewInvoice     func(childComplexity int, invoice model.PreviewInvoiceInput) int
+		PreviewInvoice     func(childComplexity int, invoice model.InvoiceInput) int
 		__resolve__service func(childComplexity int) int
 		__resolve_entities func(childComplexity int, representations []map[string]interface{}) int
 	}
@@ -115,7 +115,7 @@ type EntityResolver interface {
 	FindCompanyByID(ctx context.Context, id hide.ID) (*model.Company, error)
 }
 type InvoiceResolver interface {
-	Number(ctx context.Context, obj *model.Invoice) (int, error)
+	Number(ctx context.Context, obj *model.Invoice) (string, error)
 	CreatedBy(ctx context.Context, obj *model.Invoice) (*model.User, error)
 	Client(ctx context.Context, obj *model.Invoice) (*model.Client, error)
 	Items(ctx context.Context, obj *model.Invoice) ([]*model.LineItem, error)
@@ -132,7 +132,7 @@ type MutationResolver interface {
 type QueryResolver interface {
 	Invoice(ctx context.Context, id hide.ID) (*model.Invoice, error)
 	Invoices(ctx context.Context, page *int) ([]*model.Invoice, error)
-	PreviewInvoice(ctx context.Context, invoice model.PreviewInvoiceInput) (string, error)
+	PreviewInvoice(ctx context.Context, invoice model.InvoiceInput) (string, error)
 }
 
 type executableSchema struct {
@@ -361,7 +361,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			return 0, false
 		}
 
-		return e.complexity.Query.PreviewInvoice(childComplexity, args["invoice"].(model.PreviewInvoiceInput)), true
+		return e.complexity.Query.PreviewInvoice(childComplexity, args["invoice"].(model.InvoiceInput)), true
 
 	case "Query._service":
 		if e.complexity.Query.__resolve__service == nil {
@@ -460,29 +460,9 @@ func (ec *executionContext) introspectType(name string) (*introspection.Type, er
 }
 
 var sources = []*ast.Source{
-	{Name: "graphql/schema/invoice.graphql", Input: `input InvoiceInput {
-  clientID: ID!
-  items: [LineItemInput!]!
-}
-
-input PreviewInvoiceInput {
-  number: Int!
-  clientID: ID!
-  items: [LineItemInput!]!
-}
-
-input LineItemInput {
-  name: String!
-  description: String!
-  unitCost: Float!
-  taxRate: Float
-  quantity: Float!
-  taxInclusive: Boolean # uses company setting if unspecified
-}
-
-type Invoice {
+	{Name: "graphql/schema/invoice.graphql", Input: `type Invoice {
   id: ID!
-  number: Int!
+  number: String! # javascript does not support 64 bit integers
   createdBy: User!
   client: Client!
   items: [LineItem!]! @goField(forceResolver: true)
@@ -511,11 +491,25 @@ extend type Company @key(fields: "id") {
   invoiceTaxInclusive: Boolean!
 }
 
+input InvoiceInput {
+  clientID: ID!
+  items: [LineItemInput!]!
+}
+
+input LineItemInput {
+  name: String!
+  description: String!
+  unitCost: Float!
+  taxRate: Float
+  quantity: Float!
+  taxInclusive: Boolean # uses company setting if unspecified
+}
+
 extend type Query {
   invoice(id: ID!): Invoice! @hasPerm(perm: "Invoice:Read")
   invoices(page: Int): [Invoice!]! @hasPerm(perm: "Invoice:Read")
 
-  previewInvoice(invoice: PreviewInvoiceInput!): String! @hasPerm(perm: "Invoice:Read")
+  previewInvoice(invoice: InvoiceInput!): String! @hasPerm(perm: "Invoice:Read")
 }
 
 extend type Mutation {
@@ -764,10 +758,10 @@ func (ec *executionContext) field_Query_invoices_args(ctx context.Context, rawAr
 func (ec *executionContext) field_Query_previewInvoice_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
 	var err error
 	args := map[string]interface{}{}
-	var arg0 model.PreviewInvoiceInput
+	var arg0 model.InvoiceInput
 	if tmp, ok := rawArgs["invoice"]; ok {
 		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("invoice"))
-		arg0, err = ec.unmarshalNPreviewInvoiceInput2githubᚗcomᚋkiwisheetsᚋinvoicingᚋmodelᚐPreviewInvoiceInput(ctx, tmp)
+		arg0, err = ec.unmarshalNInvoiceInput2githubᚗcomᚋkiwisheetsᚋinvoicingᚋmodelᚐInvoiceInput(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
@@ -1134,9 +1128,9 @@ func (ec *executionContext) _Invoice_number(ctx context.Context, field graphql.C
 		}
 		return graphql.Null
 	}
-	res := resTmp.(int)
+	res := resTmp.(string)
 	fc.Result = res
-	return ec.marshalNInt2int(ctx, field.Selections, res)
+	return ec.marshalNString2string(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Invoice_createdBy(ctx context.Context, field graphql.CollectedField, obj *model.Invoice) (ret graphql.Marshaler) {
@@ -1828,7 +1822,7 @@ func (ec *executionContext) _Query_previewInvoice(ctx context.Context, field gra
 	resTmp := ec._fieldMiddleware(ctx, nil, func(rctx context.Context) (interface{}, error) {
 		directive0 := func(rctx context.Context) (interface{}, error) {
 			ctx = rctx // use context from middleware stack in children
-			return ec.resolvers.Query().PreviewInvoice(rctx, args["invoice"].(model.PreviewInvoiceInput))
+			return ec.resolvers.Query().PreviewInvoice(rctx, args["invoice"].(model.InvoiceInput))
 		}
 		directive1 := func(ctx context.Context) (interface{}, error) {
 			perm, err := ec.unmarshalNString2string(ctx, "Invoice:Read")
@@ -3141,42 +3135,6 @@ func (ec *executionContext) unmarshalInputLineItemInput(ctx context.Context, obj
 	return it, nil
 }
 
-func (ec *executionContext) unmarshalInputPreviewInvoiceInput(ctx context.Context, obj interface{}) (model.PreviewInvoiceInput, error) {
-	var it model.PreviewInvoiceInput
-	var asMap = obj.(map[string]interface{})
-
-	for k, v := range asMap {
-		switch k {
-		case "number":
-			var err error
-
-			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("number"))
-			it.Number, err = ec.unmarshalNInt2int(ctx, v)
-			if err != nil {
-				return it, err
-			}
-		case "clientID":
-			var err error
-
-			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("clientID"))
-			it.ClientID, err = ec.unmarshalNID2githubᚗcomᚋemviᚋhideᚐID(ctx, v)
-			if err != nil {
-				return it, err
-			}
-		case "items":
-			var err error
-
-			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("items"))
-			it.Items, err = ec.unmarshalNLineItemInput2ᚕᚖgithubᚗcomᚋkiwisheetsᚋinvoicingᚋmodelᚐLineItemInputᚄ(ctx, v)
-			if err != nil {
-				return it, err
-			}
-		}
-	}
-
-	return it, nil
-}
-
 // endregion **************************** input.gotpl *****************************
 
 // region    ************************** interface.gotpl ***************************
@@ -3986,21 +3944,6 @@ func (ec *executionContext) marshalNID2githubᚗcomᚋemviᚋhideᚐID(ctx conte
 	return res
 }
 
-func (ec *executionContext) unmarshalNInt2int(ctx context.Context, v interface{}) (int, error) {
-	res, err := graphql.UnmarshalInt(v)
-	return res, graphql.ErrorOnPath(ctx, err)
-}
-
-func (ec *executionContext) marshalNInt2int(ctx context.Context, sel ast.SelectionSet, v int) graphql.Marshaler {
-	res := graphql.MarshalInt(v)
-	if res == graphql.Null {
-		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
-			ec.Errorf(ctx, "must not be null")
-		}
-	}
-	return res
-}
-
 func (ec *executionContext) marshalNInvoice2githubᚗcomᚋkiwisheetsᚋinvoicingᚋmodelᚐInvoice(ctx context.Context, sel ast.SelectionSet, v model.Invoice) graphql.Marshaler {
 	return ec._Invoice(ctx, sel, &v)
 }
@@ -4128,11 +4071,6 @@ func (ec *executionContext) unmarshalNLineItemInput2ᚕᚖgithubᚗcomᚋkiwishe
 func (ec *executionContext) unmarshalNLineItemInput2ᚖgithubᚗcomᚋkiwisheetsᚋinvoicingᚋmodelᚐLineItemInput(ctx context.Context, v interface{}) (*model.LineItemInput, error) {
 	res, err := ec.unmarshalInputLineItemInput(ctx, v)
 	return &res, graphql.ErrorOnPath(ctx, err)
-}
-
-func (ec *executionContext) unmarshalNPreviewInvoiceInput2githubᚗcomᚋkiwisheetsᚋinvoicingᚋmodelᚐPreviewInvoiceInput(ctx context.Context, v interface{}) (model.PreviewInvoiceInput, error) {
-	res, err := ec.unmarshalInputPreviewInvoiceInput(ctx, v)
-	return res, graphql.ErrorOnPath(ctx, err)
 }
 
 func (ec *executionContext) unmarshalNString2string(ctx context.Context, v interface{}) (string, error) {
