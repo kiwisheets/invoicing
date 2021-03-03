@@ -30,8 +30,10 @@ func Server() *Config {
 			Database:       goenv.MustGet("POSTGRES_DB"),
 			MaxConnections: goenv.CanGetInt32("POSTGRES_MAX_CONNECTIONS", 20),
 		},
-		GqlServerURL:   goenv.MustGet("GQL_SERVER_URL"),
-		CfClientID:     goenv.CanGet("CF_CLIENT_ID", ""),
-		CfClientSecret: goenv.CanGet("CF_CLIENT_SECRET", ""),
+		GqlClient: util.ClientConfig{
+			BaseURL:        goenv.MustGet("GQL_SERVER_URL"),
+			CfClientID:     goenv.CanGet("CF_CLIENT_ID", ""),
+			CfClientSecret: goenv.CanGet("CF_CLIENT_SECRET", ""),
+		},
 	}
 }

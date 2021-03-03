@@ -72,7 +72,7 @@ func (r *mutationResolver) CreateInvoice(ctx context.Context, invoice model.Invo
 
 	r.DB.Exec("CREATE SEQUENCE IF NOT EXISTS invoice_number_" + strconv.FormatInt(int64(auth.For(ctx).CompanyID), 10) + " AS BIGINT INCREMENT 1 START 1 OWNED BY invoices.number")
 
-	err := r.DB.Debug().Clauses(clause.Returning{
+	if err := r.DB.Debug().Clauses(clause.Returning{
 		Columns: []clause.Column{
 			clause.PrimaryColumn,
 			{
@@ -80,8 +80,7 @@ func (r *mutationResolver) CreateInvoice(ctx context.Context, invoice model.Invo
 				Name:  "NUMBER",
 			},
 		},
-	}).Create(&newInvoice).Error
-	if err != nil {
+	}).Create(&newInvoice).Error; err != nil {
 		return nil, err
 	}
 
@@ -109,12 +108,21 @@ func (r *mutationResolver) CreateInvoicePdf(ctx context.Context, id hide.ID) (st
 	if err != nil {
 		return "", fmt.Errorf("error processing invoice, does the invoice exist?")
 	}
-	r.RenderProducer.Produce(msg)
+	r.MQ.RenderProducer.Produce(msg)
 	return notifyID.String(), nil
 }
 
 func (r *mutationResolver) UpdateCompanyTaxInclusive(ctx context.Context, invoiceTaxInclusive bool) (*model.Company, error) {
-	panic(fmt.Errorf("not implemented"))
+	companyID := auth.For(ctx).CompanyID
+
+	company, err := model.GetCompany(ctx, r.DB, r.GqlClient, companyID)
+	if err != nil {
+		return nil, fmt.Errorf("company not found")
+	}
+	r.DB.Model(&company).Update("invoice_tax_inclusive", invoiceTaxInclusive)
+
+	company.InvoiceTaxInclusive = invoiceTaxInclusive
+	return &company, nil
 }
 
 func (r *queryResolver) Invoice(ctx context.Context, id hide.ID) (*model.Invoice, error) {
@@ -154,7 +162,7 @@ func (r *queryResolver) PreviewInvoice(ctx context.Context, invoice model.Invoic
 		txg := tx.NewGoroutine()
 		ctxg := newrelic.NewContext(ctx, txg)
 
-		company, err = model.GetCompany(ctxg, r.DB, r.GqlServerClient, auth.For(ctx).CompanyID)
+		company, err = model.GetCompany(ctxg, r.DB, r.GqlClient, auth.For(ctx).CompanyID)
 
 		if err != nil {
 			log.Warn(err)
@@ -167,7 +175,7 @@ func (r *queryResolver) PreviewInvoice(ctx context.Context, invoice model.Invoic
 		txg := tx.NewGoroutine()
 		ctxg := newrelic.NewContext(ctx, txg)
 
-		client, err = model.GetClient(ctxg, r.DB, r.GqlServerClient, invoice.ClientID)
+		client, err = model.GetClient(ctxg, r.DB, r.GqlClient, invoice.ClientID)
 		if err != nil {
 			log.Warn(err)
 		}

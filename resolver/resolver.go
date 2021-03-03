@@ -1,8 +1,8 @@
 package resolver
 
 import (
-	"github.com/cheshir/go-mq"
 	gqlClient "github.com/kiwisheets/gql-server/client"
+	"github.com/kiwisheets/invoicing/mq"
 	"gorm.io/gorm"
 )
 
@@ -11,8 +11,7 @@ import (
 // It serves as dependency injection for your app, add any dependencies you require here.
 
 type Resolver struct {
-	DB              *gorm.DB
-	CreateProducer  mq.SyncProducer
-	RenderProducer  mq.SyncProducer
-	GqlServerClient *gqlClient.Client
+	DB        *gorm.DB
+	MQ        *mq.MQ
+	GqlClient *gqlClient.Client
 }
