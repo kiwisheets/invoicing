@@ -41,7 +41,6 @@ type Config struct {
 type ResolverRoot interface {
 	Entity() EntityResolver
 	Invoice() InvoiceResolver
-	LineItem() LineItemResolver
 	Mutation() MutationResolver
 	Query() QueryResolver
 }
@@ -90,7 +89,7 @@ type ComplexityRoot struct {
 		CreateInvoice             func(childComplexity int, invoice model.InvoiceInput) int
 		CreateInvoicePdf          func(childComplexity int, id hide.ID) int
 		UpdateCompanyTaxInclusive func(childComplexity int, invoiceTaxInclusive bool) int
-		UpdateInvoice             func(childComplexity int, invoice model.InvoiceInput) int
+		UpdateInvoice             func(childComplexity int, id hide.ID, invoice model.InvoiceInput) int
 	}
 
 	Query struct {
@@ -120,12 +119,9 @@ type InvoiceResolver interface {
 	Client(ctx context.Context, obj *model.Invoice) (*model.Client, error)
 	Items(ctx context.Context, obj *model.Invoice) ([]*model.LineItem, error)
 }
-type LineItemResolver interface {
-	TaxInclusive(ctx context.Context, obj *model.LineItem) (bool, error)
-}
 type MutationResolver interface {
 	CreateInvoice(ctx context.Context, invoice model.InvoiceInput) (*model.Invoice, error)
-	UpdateInvoice(ctx context.Context, invoice model.InvoiceInput) (*model.Invoice, error)
+	UpdateInvoice(ctx context.Context, id hide.ID, invoice model.InvoiceInput) (*model.Invoice, error)
 	CreateInvoicePdf(ctx context.Context, id hide.ID) (string, error)
 	UpdateCompanyTaxInclusive(ctx context.Context, invoiceTaxInclusive bool) (*model.Company, error)
 }
@@ -325,7 +321,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			return 0, false
 		}
 
-		return e.complexity.Mutation.UpdateInvoice(childComplexity, args["invoice"].(model.InvoiceInput)), true
+		return e.complexity.Mutation.UpdateInvoice(childComplexity, args["id"].(hide.ID), args["invoice"].(model.InvoiceInput)), true
 
 	case "Query.invoice":
 		if e.complexity.Query.Invoice == nil {
@@ -515,7 +511,7 @@ extend type Query {
 extend type Mutation {
   createInvoice(invoice: InvoiceInput!): Invoice! @hasPerm(perm: "Invoice:Create")
 
-  updateInvoice(invoice: InvoiceInput!): Invoice! @hasPerm(perm: "Invoice:Update")
+  updateInvoice(id: ID! invoice: InvoiceInput!): Invoice! @hasPerm(perm: "Invoice:Update")
 
   createInvoicePdf(id: ID!): String! @hasPerm(perm: "Invoice:Read")
 
@@ -683,15 +679,24 @@ func (ec *executionContext) field_Mutation_updateCompanyTaxInclusive_args(ctx co
 func (ec *executionContext) field_Mutation_updateInvoice_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
 	var err error
 	args := map[string]interface{}{}
-	var arg0 model.InvoiceInput
-	if tmp, ok := rawArgs["invoice"]; ok {
-		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("invoice"))
-		arg0, err = ec.unmarshalNInvoiceInput2githubᚗcomᚋkiwisheetsᚋinvoicingᚋmodelᚐInvoiceInput(ctx, tmp)
+	var arg0 hide.ID
+	if tmp, ok := rawArgs["id"]; ok {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("id"))
+		arg0, err = ec.unmarshalNID2githubᚗcomᚋemviᚋhideᚐID(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
 	}
-	args["invoice"] = arg0
+	args["id"] = arg0
+	var arg1 model.InvoiceInput
+	if tmp, ok := rawArgs["invoice"]; ok {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("invoice"))
+		arg1, err = ec.unmarshalNInvoiceInput2githubᚗcomᚋkiwisheetsᚋinvoicingᚋmodelᚐInvoiceInput(ctx, tmp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args["invoice"] = arg1
 	return args, nil
 }
 
@@ -1397,14 +1402,14 @@ func (ec *executionContext) _LineItem_taxInclusive(ctx context.Context, field gr
 		Object:     "LineItem",
 		Field:      field,
 		Args:       nil,
-		IsMethod:   true,
-		IsResolver: true,
+		IsMethod:   false,
+		IsResolver: false,
 	}
 
 	ctx = graphql.WithFieldContext(ctx, fc)
 	resTmp := ec._fieldMiddleware(ctx, obj, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.LineItem().TaxInclusive(rctx, obj)
+		return obj.TaxInclusive, nil
 	})
 
 	if resTmp == nil {
@@ -1507,7 +1512,7 @@ func (ec *executionContext) _Mutation_updateInvoice(ctx context.Context, field g
 	resTmp := ec._fieldMiddleware(ctx, nil, func(rctx context.Context) (interface{}, error) {
 		directive0 := func(rctx context.Context) (interface{}, error) {
 			ctx = rctx // use context from middleware stack in children
-			return ec.resolvers.Mutation().UpdateInvoice(rctx, args["invoice"].(model.InvoiceInput))
+			return ec.resolvers.Mutation().UpdateInvoice(rctx, args["id"].(hide.ID), args["invoice"].(model.InvoiceInput))
 		}
 		directive1 := func(ctx context.Context) (interface{}, error) {
 			perm, err := ec.unmarshalNString2string(ctx, "Invoice:Update")
@@ -3385,39 +3390,30 @@ func (ec *executionContext) _LineItem(ctx context.Context, sel ast.SelectionSet,
 		case "name":
 			out.Values[i] = ec._LineItem_name(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				atomic.AddUint32(&invalids, 1)
+				invalids++
 			}
 		case "description":
 			out.Values[i] = ec._LineItem_description(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				atomic.AddUint32(&invalids, 1)
+				invalids++
 			}
 		case "unitCost":
 			out.Values[i] = ec._LineItem_unitCost(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				atomic.AddUint32(&invalids, 1)
+				invalids++
 			}
 		case "taxRate":
 			out.Values[i] = ec._LineItem_taxRate(ctx, field, obj)
 		case "quantity":
 			out.Values[i] = ec._LineItem_quantity(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				atomic.AddUint32(&invalids, 1)
+				invalids++
 			}
 		case "taxInclusive":
-			field := field
-			out.Concurrently(i, func() (res graphql.Marshaler) {
-				defer func() {
-					if r := recover(); r != nil {
-						ec.Error(ctx, ec.Recover(ctx, r))
-					}
-				}()
-				res = ec._LineItem_taxInclusive(ctx, field, obj)
-				if res == graphql.Null {
-					atomic.AddUint32(&invalids, 1)
-				}
-				return res
-			})
+			out.Values[i] = ec._LineItem_taxInclusive(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				invalids++
+			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}

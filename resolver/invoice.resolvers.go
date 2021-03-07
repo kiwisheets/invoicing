@@ -19,6 +19,7 @@ import (
 	"github.com/kiwisheets/util"
 	"github.com/maxtroughear/logrusextension"
 	"github.com/newrelic/go-agent/v3/newrelic"
+	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
 
@@ -44,10 +45,6 @@ func (r *invoiceResolver) Items(ctx context.Context, obj *model.Invoice) ([]*mod
 	return lineItems, nil
 }
 
-func (r *lineItemResolver) TaxInclusive(ctx context.Context, obj *model.LineItem) (bool, error) {
-	panic(fmt.Errorf("not implemented"))
-}
-
 func (r *mutationResolver) CreateInvoice(ctx context.Context, invoice model.InvoiceInput) (*model.Invoice, error) {
 	lineItems := make([]model.LineItem, len(invoice.Items))
 	for i, l := range invoice.Items {
@@ -57,6 +54,12 @@ func (r *mutationResolver) CreateInvoice(ctx context.Context, invoice model.Invo
 			Quantity:    l.Quantity,
 			TaxRate:     l.TaxRate,
 			UnitCost:    l.UnitCost,
+		}
+
+		if l.TaxInclusive != nil {
+			lineItems[i].TaxInclusive = *l.TaxInclusive
+		} else {
+			lineItems[i].TaxInclusive = model.DefaultTaxInclusive(ctx, r.DB, r.GqlClient, auth.For(ctx).CompanyID)
 		}
 	}
 
@@ -87,8 +90,47 @@ func (r *mutationResolver) CreateInvoice(ctx context.Context, invoice model.Invo
 	return newInvoice, nil
 }
 
-func (r *mutationResolver) UpdateInvoice(ctx context.Context, invoice model.InvoiceInput) (*model.Invoice, error) {
-	panic(fmt.Errorf("not implemented"))
+func (r *mutationResolver) UpdateInvoice(ctx context.Context, id hide.ID, invoice model.InvoiceInput) (*model.Invoice, error) {
+	lineItems := make([]model.LineItem, len(invoice.Items))
+	for i, l := range invoice.Items {
+		lineItems[i] = model.LineItem{
+			Description: l.Description,
+			Name:        l.Name,
+			Quantity:    l.Quantity,
+			TaxRate:     l.TaxRate,
+			UnitCost:    l.UnitCost,
+		}
+
+		if l.TaxInclusive != nil {
+			lineItems[i].TaxInclusive = *l.TaxInclusive
+		} else {
+			lineItems[i].TaxInclusive = model.DefaultTaxInclusive(ctx, r.DB, r.GqlClient, auth.For(ctx).CompanyID)
+		}
+	}
+
+	err := r.DB.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Model(&model.Invoice{
+			ID: id,
+		}).Updates(&model.Invoice{
+			ClientID: invoice.ClientID,
+		}).Error; err != nil {
+			return err
+		}
+
+		if err := tx.Delete(&model.LineItem{}, "invoice_id = ?", id).Error; err != nil {
+			return err
+		}
+
+		if err := tx.Model(&model.Invoice{
+			ID: id,
+		}).Association("LineItems").Append(&lineItems); err != nil {
+			return nil
+		}
+
+		return nil
+	})
+
+	return nil, err
 }
 
 func (r *mutationResolver) CreateInvoicePdf(ctx context.Context, id hide.ID) (string, error) {
@@ -201,9 +243,6 @@ func (r *queryResolver) PreviewInvoice(ctx context.Context, invoice model.Invoic
 // Invoice returns generated.InvoiceResolver implementation.
 func (r *Resolver) Invoice() generated.InvoiceResolver { return &invoiceResolver{r} }
 
-// LineItem returns generated.LineItemResolver implementation.
-func (r *Resolver) LineItem() generated.LineItemResolver { return &lineItemResolver{r} }
-
 // Mutation returns generated.MutationResolver implementation.
 func (r *Resolver) Mutation() generated.MutationResolver { return &mutationResolver{r} }
 
@@ -211,6 +250,5 @@ func (r *Resolver) Mutation() generated.MutationResolver { return &mutationResol
 func (r *Resolver) Query() generated.QueryResolver { return &queryResolver{r} }
 
 type invoiceResolver struct{ *Resolver }
-type lineItemResolver struct{ *Resolver }
 type mutationResolver struct{ *Resolver }
 type queryResolver struct{ *Resolver }

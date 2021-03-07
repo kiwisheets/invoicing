@@ -114,6 +114,8 @@ func exCompanyToCompany(c *gqlClient.GetCompany) Company {
 			State:      c.Company.ShippingAddress.State,
 			Country:    c.Company.ShippingAddress.Country,
 		},
+		// default to true for including tax,
+		// may be an idea to default this based on Company's base country
 		InvoiceTaxInclusive: true,
 	}
 }

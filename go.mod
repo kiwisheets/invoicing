@@ -4,7 +4,7 @@ go 1.16
 
 require (
 	github.com/99designs/gqlgen v0.13.0
-	github.com/abice/go-enum v0.2.5
+	github.com/abice/go-enum v0.3.0
 	github.com/aymerick/raymond v2.0.2+incompatible
 	github.com/cheshir/go-mq v1.1.0
 	github.com/emvi/hide v1.1.2
@@ -25,5 +25,5 @@ require (
 	github.com/tdewolff/test v1.0.6 // indirect
 	github.com/vektah/dataloaden v0.3.0
 	github.com/vektah/gqlparser/v2 v2.1.0
-	gorm.io/gorm v1.20.12
+	gorm.io/gorm v1.21.1
 )
