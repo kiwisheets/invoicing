@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/99designs/gqlgen/graphql"
 	"github.com/99designs/gqlgen/graphql/introspection"
@@ -41,6 +42,7 @@ type Config struct {
 type ResolverRoot interface {
 	Entity() EntityResolver
 	Invoice() InvoiceResolver
+	LineItem() LineItemResolver
 	Mutation() MutationResolver
 	Query() QueryResolver
 }
@@ -69,11 +71,15 @@ type ComplexityRoot struct {
 	}
 
 	Invoice struct {
-		Client    func(childComplexity int) int
-		CreatedBy func(childComplexity int) int
-		ID        func(childComplexity int) int
-		Items     func(childComplexity int) int
-		Number    func(childComplexity int) int
+		Client        func(childComplexity int) int
+		CreatedBy     func(childComplexity int) int
+		DateDue       func(childComplexity int) int
+		ID            func(childComplexity int) int
+		Items         func(childComplexity int) int
+		Number        func(childComplexity int) int
+		PaymentStatus func(childComplexity int) int
+		Status        func(childComplexity int) int
+		Total         func(childComplexity int) int
 	}
 
 	LineItem struct {
@@ -82,6 +88,7 @@ type ComplexityRoot struct {
 		Quantity     func(childComplexity int) int
 		TaxInclusive func(childComplexity int) int
 		TaxRate      func(childComplexity int) int
+		Total        func(childComplexity int) int
 		UnitCost     func(childComplexity int) int
 	}
 
@@ -114,10 +121,17 @@ type EntityResolver interface {
 	FindCompanyByID(ctx context.Context, id hide.ID) (*model.Company, error)
 }
 type InvoiceResolver interface {
+	Status(ctx context.Context, obj *model.Invoice) (model.InvoiceStatus, error)
+	PaymentStatus(ctx context.Context, obj *model.Invoice) (*model.InvoicePaymentStatus, error)
 	Number(ctx context.Context, obj *model.Invoice) (string, error)
 	CreatedBy(ctx context.Context, obj *model.Invoice) (*model.User, error)
 	Client(ctx context.Context, obj *model.Invoice) (*model.Client, error)
 	Items(ctx context.Context, obj *model.Invoice) ([]*model.LineItem, error)
+
+	Total(ctx context.Context, obj *model.Invoice) (float64, error)
+}
+type LineItemResolver interface {
+	Total(ctx context.Context, obj *model.LineItem) (float64, error)
 }
 type MutationResolver interface {
 	CreateInvoice(ctx context.Context, invoice model.InvoiceInput) (*model.Invoice, error)
@@ -212,6 +226,13 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.Invoice.CreatedBy(childComplexity), true
 
+	case "Invoice.dateDue":
+		if e.complexity.Invoice.DateDue == nil {
+			break
+		}
+
+		return e.complexity.Invoice.DateDue(childComplexity), true
+
 	case "Invoice.id":
 		if e.complexity.Invoice.ID == nil {
 			break
@@ -232,6 +253,27 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 		}
 
 		return e.complexity.Invoice.Number(childComplexity), true
+
+	case "Invoice.paymentStatus":
+		if e.complexity.Invoice.PaymentStatus == nil {
+			break
+		}
+
+		return e.complexity.Invoice.PaymentStatus(childComplexity), true
+
+	case "Invoice.status":
+		if e.complexity.Invoice.Status == nil {
+			break
+		}
+
+		return e.complexity.Invoice.Status(childComplexity), true
+
+	case "Invoice.total":
+		if e.complexity.Invoice.Total == nil {
+			break
+		}
+
+		return e.complexity.Invoice.Total(childComplexity), true
 
 	case "LineItem.description":
 		if e.complexity.LineItem.Description == nil {
@@ -267,6 +309,13 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 		}
 
 		return e.complexity.LineItem.TaxRate(childComplexity), true
+
+	case "LineItem.total":
+		if e.complexity.LineItem.Total == nil {
+			break
+		}
+
+		return e.complexity.LineItem.Total(childComplexity), true
 
 	case "LineItem.unitCost":
 		if e.complexity.LineItem.UnitCost == nil {
@@ -456,21 +505,55 @@ func (ec *executionContext) introspectType(name string) (*introspection.Type, er
 }
 
 var sources = []*ast.Source{
-	{Name: "graphql/schema/invoice.graphql", Input: `type Invoice {
+	{Name: "graphql/schema/invoice.graphql", Input: `enum InvoiceStatus {
+  DRAFT
+  SENT
+  VIEWED
+}
+
+enum InvoicePaymentStatus {
+  PENDING
+  COMPLETE
+  OVERDUE
+}
+
+type Invoice {
   id: ID!
+  status: InvoiceStatus!
+  paymentStatus: InvoicePaymentStatus
   number: String! # javascript does not support 64 bit integers
   createdBy: User!
   client: Client!
   items: [LineItem!]! @goField(forceResolver: true)
+  dateDue: Time!
+
+  total: Float!
 }
 
 type LineItem {
   name: String!
   description: String!
   unitCost: Float!
-  taxRate: Float
+  taxRate: Float!
   quantity: Float!
   taxInclusive: Boolean!
+  total: Float!
+}
+
+input InvoiceInput {
+  clientID: ID!
+  items: [LineItemInput!]!
+
+  dateDue: Time!
+}
+
+input LineItemInput {
+  name: String!
+  description: String!
+  unitCost: Float!
+  taxRate: Float
+  quantity: Float!
+  taxInclusive: Boolean # uses company setting if unspecified
 }
 
 extend type Client @key(fields: "id") {
@@ -485,20 +568,6 @@ extend type User @key(fields: "id") {
 extend type Company @key(fields: "id") {
   id: ID! @external
   invoiceTaxInclusive: Boolean!
-}
-
-input InvoiceInput {
-  clientID: ID!
-  items: [LineItemInput!]!
-}
-
-input LineItemInput {
-  name: String!
-  description: String!
-  unitCost: Float!
-  taxRate: Float
-  quantity: Float!
-  taxInclusive: Boolean # uses company setting if unspecified
 }
 
 extend type Query {
@@ -533,6 +602,7 @@ directive @hasPerms(perms: [String!]!) on FIELD | FIELD_DEFINITION | OBJECT
 # example: @hasPerm(perm: "Company:Edit")
 directive @hasPerm(perm: String!) on FIELD | FIELD_DEFINITION | OBJECT
 
+scalar Time
 `, BuiltIn: false},
 	{Name: "federation/directives.graphql", Input: `
 scalar _Any
@@ -1106,6 +1176,67 @@ func (ec *executionContext) _Invoice_id(ctx context.Context, field graphql.Colle
 	return ec.marshalNID2githubᚗcomᚋemviᚋhideᚐID(ctx, field.Selections, res)
 }
 
+func (ec *executionContext) _Invoice_status(ctx context.Context, field graphql.CollectedField, obj *model.Invoice) (ret graphql.Marshaler) {
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	fc := &graphql.FieldContext{
+		Object:     "Invoice",
+		Field:      field,
+		Args:       nil,
+		IsMethod:   true,
+		IsResolver: true,
+	}
+
+	ctx = graphql.WithFieldContext(ctx, fc)
+	resTmp := ec._fieldMiddleware(ctx, obj, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Invoice().Status(rctx, obj)
+	})
+
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(model.InvoiceStatus)
+	fc.Result = res
+	return ec.marshalNInvoiceStatus2githubᚗcomᚋkiwisheetsᚋinvoicingᚋmodelᚐInvoiceStatus(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) _Invoice_paymentStatus(ctx context.Context, field graphql.CollectedField, obj *model.Invoice) (ret graphql.Marshaler) {
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	fc := &graphql.FieldContext{
+		Object:     "Invoice",
+		Field:      field,
+		Args:       nil,
+		IsMethod:   true,
+		IsResolver: true,
+	}
+
+	ctx = graphql.WithFieldContext(ctx, fc)
+	resTmp := ec._fieldMiddleware(ctx, obj, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Invoice().PaymentStatus(rctx, obj)
+	})
+
+	if resTmp == nil {
+		return graphql.Null
+	}
+	res := resTmp.(*model.InvoicePaymentStatus)
+	fc.Result = res
+	return ec.marshalOInvoicePaymentStatus2ᚖgithubᚗcomᚋkiwisheetsᚋinvoicingᚋmodelᚐInvoicePaymentStatus(ctx, field.Selections, res)
+}
+
 func (ec *executionContext) _Invoice_number(ctx context.Context, field graphql.CollectedField, obj *model.Invoice) (ret graphql.Marshaler) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -1234,6 +1365,70 @@ func (ec *executionContext) _Invoice_items(ctx context.Context, field graphql.Co
 	return ec.marshalNLineItem2ᚕᚖgithubᚗcomᚋkiwisheetsᚋinvoicingᚋmodelᚐLineItemᚄ(ctx, field.Selections, res)
 }
 
+func (ec *executionContext) _Invoice_dateDue(ctx context.Context, field graphql.CollectedField, obj *model.Invoice) (ret graphql.Marshaler) {
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	fc := &graphql.FieldContext{
+		Object:     "Invoice",
+		Field:      field,
+		Args:       nil,
+		IsMethod:   false,
+		IsResolver: false,
+	}
+
+	ctx = graphql.WithFieldContext(ctx, fc)
+	resTmp := ec._fieldMiddleware(ctx, obj, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.DateDue, nil
+	})
+
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(time.Time)
+	fc.Result = res
+	return ec.marshalNTime2timeᚐTime(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) _Invoice_total(ctx context.Context, field graphql.CollectedField, obj *model.Invoice) (ret graphql.Marshaler) {
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	fc := &graphql.FieldContext{
+		Object:     "Invoice",
+		Field:      field,
+		Args:       nil,
+		IsMethod:   true,
+		IsResolver: true,
+	}
+
+	ctx = graphql.WithFieldContext(ctx, fc)
+	resTmp := ec._fieldMiddleware(ctx, obj, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Invoice().Total(rctx, obj)
+	})
+
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(float64)
+	fc.Result = res
+	return ec.marshalNFloat2float64(ctx, field.Selections, res)
+}
+
 func (ec *executionContext) _LineItem_name(ctx context.Context, field graphql.CollectedField, obj *model.LineItem) (ret graphql.Marshaler) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -1352,11 +1547,14 @@ func (ec *executionContext) _LineItem_taxRate(ctx context.Context, field graphql
 	})
 
 	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
 		return graphql.Null
 	}
 	res := resTmp.(*float64)
 	fc.Result = res
-	return ec.marshalOFloat2ᚖfloat64(ctx, field.Selections, res)
+	return ec.marshalNFloat2ᚖfloat64(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _LineItem_quantity(ctx context.Context, field graphql.CollectedField, obj *model.LineItem) (ret graphql.Marshaler) {
@@ -1421,6 +1619,38 @@ func (ec *executionContext) _LineItem_taxInclusive(ctx context.Context, field gr
 	res := resTmp.(bool)
 	fc.Result = res
 	return ec.marshalNBoolean2bool(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) _LineItem_total(ctx context.Context, field graphql.CollectedField, obj *model.LineItem) (ret graphql.Marshaler) {
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	fc := &graphql.FieldContext{
+		Object:     "LineItem",
+		Field:      field,
+		Args:       nil,
+		IsMethod:   true,
+		IsResolver: true,
+	}
+
+	ctx = graphql.WithFieldContext(ctx, fc)
+	resTmp := ec._fieldMiddleware(ctx, obj, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.LineItem().Total(rctx, obj)
+	})
+
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(float64)
+	fc.Result = res
+	return ec.marshalNFloat2float64(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Mutation_createInvoice(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
@@ -3074,6 +3304,14 @@ func (ec *executionContext) unmarshalInputInvoiceInput(ctx context.Context, obj 
 			if err != nil {
 				return it, err
 			}
+		case "dateDue":
+			var err error
+
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("dateDue"))
+			it.DateDue, err = ec.unmarshalNTime2timeᚐTime(ctx, v)
+			if err != nil {
+				return it, err
+			}
 		}
 	}
 
@@ -3309,6 +3547,31 @@ func (ec *executionContext) _Invoice(ctx context.Context, sel ast.SelectionSet, 
 			if out.Values[i] == graphql.Null {
 				atomic.AddUint32(&invalids, 1)
 			}
+		case "status":
+			field := field
+			out.Concurrently(i, func() (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Invoice_status(ctx, field, obj)
+				if res == graphql.Null {
+					atomic.AddUint32(&invalids, 1)
+				}
+				return res
+			})
+		case "paymentStatus":
+			field := field
+			out.Concurrently(i, func() (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Invoice_paymentStatus(ctx, field, obj)
+				return res
+			})
 		case "number":
 			field := field
 			out.Concurrently(i, func() (res graphql.Marshaler) {
@@ -3365,6 +3628,25 @@ func (ec *executionContext) _Invoice(ctx context.Context, sel ast.SelectionSet, 
 				}
 				return res
 			})
+		case "dateDue":
+			out.Values[i] = ec._Invoice_dateDue(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&invalids, 1)
+			}
+		case "total":
+			field := field
+			out.Concurrently(i, func() (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Invoice_total(ctx, field, obj)
+				if res == graphql.Null {
+					atomic.AddUint32(&invalids, 1)
+				}
+				return res
+			})
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -3390,30 +3672,47 @@ func (ec *executionContext) _LineItem(ctx context.Context, sel ast.SelectionSet,
 		case "name":
 			out.Values[i] = ec._LineItem_name(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				invalids++
+				atomic.AddUint32(&invalids, 1)
 			}
 		case "description":
 			out.Values[i] = ec._LineItem_description(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				invalids++
+				atomic.AddUint32(&invalids, 1)
 			}
 		case "unitCost":
 			out.Values[i] = ec._LineItem_unitCost(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				invalids++
+				atomic.AddUint32(&invalids, 1)
 			}
 		case "taxRate":
 			out.Values[i] = ec._LineItem_taxRate(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&invalids, 1)
+			}
 		case "quantity":
 			out.Values[i] = ec._LineItem_quantity(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				invalids++
+				atomic.AddUint32(&invalids, 1)
 			}
 		case "taxInclusive":
 			out.Values[i] = ec._LineItem_taxInclusive(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				invalids++
+				atomic.AddUint32(&invalids, 1)
 			}
+		case "total":
+			field := field
+			out.Concurrently(i, func() (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._LineItem_total(ctx, field, obj)
+				if res == graphql.Null {
+					atomic.AddUint32(&invalids, 1)
+				}
+				return res
+			})
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -3925,6 +4224,27 @@ func (ec *executionContext) marshalNFloat2float64(ctx context.Context, sel ast.S
 	return res
 }
 
+func (ec *executionContext) unmarshalNFloat2ᚖfloat64(ctx context.Context, v interface{}) (*float64, error) {
+	res, err := graphql.UnmarshalFloat(v)
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNFloat2ᚖfloat64(ctx context.Context, sel ast.SelectionSet, v *float64) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := graphql.MarshalFloat(*v)
+	if res == graphql.Null {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			ec.Errorf(ctx, "must not be null")
+		}
+	}
+	return res
+}
+
 func (ec *executionContext) unmarshalNID2githubᚗcomᚋemviᚋhideᚐID(ctx context.Context, v interface{}) (hide.ID, error) {
 	res, err := orm.UnmarshalID(v)
 	return res, graphql.ErrorOnPath(ctx, err)
@@ -3994,6 +4314,16 @@ func (ec *executionContext) marshalNInvoice2ᚖgithubᚗcomᚋkiwisheetsᚋinvoi
 func (ec *executionContext) unmarshalNInvoiceInput2githubᚗcomᚋkiwisheetsᚋinvoicingᚋmodelᚐInvoiceInput(ctx context.Context, v interface{}) (model.InvoiceInput, error) {
 	res, err := ec.unmarshalInputInvoiceInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) unmarshalNInvoiceStatus2githubᚗcomᚋkiwisheetsᚋinvoicingᚋmodelᚐInvoiceStatus(ctx context.Context, v interface{}) (model.InvoiceStatus, error) {
+	var res model.InvoiceStatus
+	err := res.UnmarshalGQL(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNInvoiceStatus2githubᚗcomᚋkiwisheetsᚋinvoicingᚋmodelᚐInvoiceStatus(ctx context.Context, sel ast.SelectionSet, v model.InvoiceStatus) graphql.Marshaler {
+	return v
 }
 
 func (ec *executionContext) marshalNLineItem2ᚕᚖgithubᚗcomᚋkiwisheetsᚋinvoicingᚋmodelᚐLineItemᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.LineItem) graphql.Marshaler {
@@ -4112,6 +4442,21 @@ func (ec *executionContext) marshalNString2ᚕstringᚄ(ctx context.Context, sel
 	}
 
 	return ret
+}
+
+func (ec *executionContext) unmarshalNTime2timeᚐTime(ctx context.Context, v interface{}) (time.Time, error) {
+	res, err := graphql.UnmarshalTime(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNTime2timeᚐTime(ctx context.Context, sel ast.SelectionSet, v time.Time) graphql.Marshaler {
+	res := graphql.MarshalTime(v)
+	if res == graphql.Null {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			ec.Errorf(ctx, "must not be null")
+		}
+	}
+	return res
 }
 
 func (ec *executionContext) marshalNUser2githubᚗcomᚋkiwisheetsᚋinvoicingᚋmodelᚐUser(ctx context.Context, sel ast.SelectionSet, v model.User) graphql.Marshaler {
@@ -4556,6 +4901,22 @@ func (ec *executionContext) marshalOInvoice2ᚕᚖgithubᚗcomᚋkiwisheetsᚋin
 	}
 	wg.Wait()
 	return ret
+}
+
+func (ec *executionContext) unmarshalOInvoicePaymentStatus2ᚖgithubᚗcomᚋkiwisheetsᚋinvoicingᚋmodelᚐInvoicePaymentStatus(ctx context.Context, v interface{}) (*model.InvoicePaymentStatus, error) {
+	if v == nil {
+		return nil, nil
+	}
+	var res = new(model.InvoicePaymentStatus)
+	err := res.UnmarshalGQL(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalOInvoicePaymentStatus2ᚖgithubᚗcomᚋkiwisheetsᚋinvoicingᚋmodelᚐInvoicePaymentStatus(ctx context.Context, sel ast.SelectionSet, v *model.InvoicePaymentStatus) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return v
 }
 
 func (ec *executionContext) unmarshalOString2string(ctx context.Context, v interface{}) (string, error) {

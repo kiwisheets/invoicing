@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"strconv"
 	"sync"
+	"time"
 
 	"github.com/emvi/hide"
 	"github.com/google/uuid"
@@ -22,6 +23,14 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
+
+func (r *invoiceResolver) Status(ctx context.Context, obj *model.Invoice) (model.InvoiceStatus, error) {
+	panic(fmt.Errorf("not implemented"))
+}
+
+func (r *invoiceResolver) PaymentStatus(ctx context.Context, obj *model.Invoice) (*model.InvoicePaymentStatus, error) {
+	panic(fmt.Errorf("not implemented"))
+}
 
 func (r *invoiceResolver) Number(ctx context.Context, obj *model.Invoice) (string, error) {
 	return strconv.FormatInt(obj.Number.Number, 10), nil
@@ -43,6 +52,14 @@ func (r *invoiceResolver) Items(ctx context.Context, obj *model.Invoice) ([]*mod
 	lineItems := make([]*model.LineItem, 0)
 	r.DB.Where("invoice_id = ?", obj.ID).Find(&lineItems)
 	return lineItems, nil
+}
+
+func (r *invoiceResolver) Total(ctx context.Context, obj *model.Invoice) (float64, error) {
+	panic(fmt.Errorf("not implemented"))
+}
+
+func (r *lineItemResolver) Total(ctx context.Context, obj *model.LineItem) (float64, error) {
+	panic(fmt.Errorf("not implemented"))
 }
 
 func (r *mutationResolver) CreateInvoice(ctx context.Context, invoice model.InvoiceInput) (*model.Invoice, error) {
@@ -71,6 +88,7 @@ func (r *mutationResolver) CreateInvoice(ctx context.Context, invoice model.Invo
 		Number: model.InvoiceNumber{
 			CompanyID: auth.For(ctx).CompanyID,
 		},
+		DateDue: invoice.DateDue,
 	}
 
 	r.DB.Exec("CREATE SEQUENCE IF NOT EXISTS invoice_number_" + strconv.FormatInt(int64(auth.For(ctx).CompanyID), 10) + " AS BIGINT INCREMENT 1 START 1 OWNED BY invoices.number")
@@ -173,6 +191,7 @@ func (r *queryResolver) Invoice(ctx context.Context, id hide.ID) (*model.Invoice
 	if err := r.DB.Where(id).Where("company_id = ?", auth.For(ctx).CompanyID).Find(&invoice).Error; err != nil {
 		return nil, fmt.Errorf("invoice not found")
 	}
+	invoice.DateDue = time.Now()
 	return &invoice, nil
 }
 
@@ -183,6 +202,10 @@ func (r *queryResolver) Invoices(ctx context.Context, page *int) ([]*model.Invoi
 		page = util.Int(0)
 	}
 	r.DB.Where("company_id = ?", auth.For(ctx).CompanyID).Limit(limit).Offset(limit * *page).Find(&invoices)
+
+	for i := range invoices {
+		invoices[i].DateDue = time.Now()
+	}
 
 	return invoices, nil
 }
@@ -243,6 +266,9 @@ func (r *queryResolver) PreviewInvoice(ctx context.Context, invoice model.Invoic
 // Invoice returns generated.InvoiceResolver implementation.
 func (r *Resolver) Invoice() generated.InvoiceResolver { return &invoiceResolver{r} }
 
+// LineItem returns generated.LineItemResolver implementation.
+func (r *Resolver) LineItem() generated.LineItemResolver { return &lineItemResolver{r} }
+
 // Mutation returns generated.MutationResolver implementation.
 func (r *Resolver) Mutation() generated.MutationResolver { return &mutationResolver{r} }
 
@@ -250,5 +276,6 @@ func (r *Resolver) Mutation() generated.MutationResolver { return &mutationResol
 func (r *Resolver) Query() generated.QueryResolver { return &queryResolver{r} }
 
 type invoiceResolver struct{ *Resolver }
+type lineItemResolver struct{ *Resolver }
 type mutationResolver struct{ *Resolver }
 type queryResolver struct{ *Resolver }

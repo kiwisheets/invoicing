@@ -27,6 +27,6 @@ func (n InvoiceNumber) GormValue(ctx context.Context, db *gorm.DB) clause.Expr {
 
 func (n *InvoiceNumber) Scan(v interface{}) error {
 	n.Number = v.(int64)
-	logrus.Debugf("scanning InvoiceNumber %f", n.Number)
+	logrus.Tracef("scanning InvoiceNumber %f", n.Number)
 	return nil
 }

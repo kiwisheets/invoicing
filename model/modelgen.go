@@ -3,12 +3,18 @@
 package model
 
 import (
+	"fmt"
+	"io"
+	"strconv"
+	"time"
+
 	"github.com/emvi/hide"
 )
 
 type InvoiceInput struct {
 	ClientID hide.ID          `json:"clientID"`
 	Items    []*LineItemInput `json:"items"`
+	DateDue  time.Time        `json:"dateDue"`
 }
 
 type LineItemInput struct {
@@ -25,3 +31,89 @@ type User struct {
 }
 
 func (User) IsEntity() {}
+
+type InvoicePaymentStatus string
+
+const (
+	InvoicePaymentStatusPending  InvoicePaymentStatus = "PENDING"
+	InvoicePaymentStatusComplete InvoicePaymentStatus = "COMPLETE"
+	InvoicePaymentStatusOverdue  InvoicePaymentStatus = "OVERDUE"
+)
+
+var AllInvoicePaymentStatus = []InvoicePaymentStatus{
+	InvoicePaymentStatusPending,
+	InvoicePaymentStatusComplete,
+	InvoicePaymentStatusOverdue,
+}
+
+func (e InvoicePaymentStatus) IsValid() bool {
+	switch e {
+	case InvoicePaymentStatusPending, InvoicePaymentStatusComplete, InvoicePaymentStatusOverdue:
+		return true
+	}
+	return false
+}
+
+func (e InvoicePaymentStatus) String() string {
+	return string(e)
+}
+
+func (e *InvoicePaymentStatus) UnmarshalGQL(v interface{}) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = InvoicePaymentStatus(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid InvoicePaymentStatus", str)
+	}
+	return nil
+}
+
+func (e InvoicePaymentStatus) MarshalGQL(w io.Writer) {
+	fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+type InvoiceStatus string
+
+const (
+	InvoiceStatusDraft  InvoiceStatus = "DRAFT"
+	InvoiceStatusSent   InvoiceStatus = "SENT"
+	InvoiceStatusViewed InvoiceStatus = "VIEWED"
+)
+
+var AllInvoiceStatus = []InvoiceStatus{
+	InvoiceStatusDraft,
+	InvoiceStatusSent,
+	InvoiceStatusViewed,
+}
+
+func (e InvoiceStatus) IsValid() bool {
+	switch e {
+	case InvoiceStatusDraft, InvoiceStatusSent, InvoiceStatusViewed:
+		return true
+	}
+	return false
+}
+
+func (e InvoiceStatus) String() string {
+	return string(e)
+}
+
+func (e *InvoiceStatus) UnmarshalGQL(v interface{}) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = InvoiceStatus(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid InvoiceStatus", str)
+	}
+	return nil
+}
+
+func (e InvoiceStatus) MarshalGQL(w io.Writer) {
+	fmt.Fprint(w, strconv.Quote(e.String()))
+}

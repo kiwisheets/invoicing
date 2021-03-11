@@ -1,18 +1,24 @@
 enum InvoiceStatus {
   DRAFT
   SENT
+  VIEWED
+}
 
+enum InvoicePaymentStatus {
+  PENDING
+  COMPLETE
+  OVERDUE
 }
 
 type Invoice {
   id: ID!
   status: InvoiceStatus!
+  paymentStatus: InvoicePaymentStatus
   number: String! # javascript does not support 64 bit integers
   createdBy: User!
   client: Client!
   items: [LineItem!]! @goField(forceResolver: true)
-
-  finalised: Boolean!
+  dateDue: Time!
 
   total: Float!
 }
@@ -30,6 +36,8 @@ type LineItem {
 input InvoiceInput {
   clientID: ID!
   items: [LineItemInput!]!
+
+  dateDue: Time!
 }
 
 input LineItemInput {

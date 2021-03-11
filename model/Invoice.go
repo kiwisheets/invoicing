@@ -16,6 +16,7 @@ type Invoice struct {
 	CompanyID hide.ID
 	CreatedBy hide.ID
 	ClientID  hide.ID
+	DateDue   time.Time
 
 	LineItems []LineItem `json:"items"`
 }
