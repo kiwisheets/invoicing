@@ -14,7 +14,7 @@ type Invoice {
   id: ID!
   status: InvoiceStatus!
   paymentStatus: InvoicePaymentStatus
-  number: String! # javascript does not support 64 bit integers
+  number: String!
   createdBy: User!
   client: Client!
   items: [LineItem!]! @goField(forceResolver: true)

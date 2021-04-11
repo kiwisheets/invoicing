@@ -153,7 +153,11 @@ func (r *mutationResolver) UpdateInvoice(ctx context.Context, id hide.ID, invoic
 
 func (r *mutationResolver) CreateInvoicePdf(ctx context.Context, id hide.ID) (string, error) {
 	var invoice model.Invoice
-	r.DB.Where(id).Where("company_id = ?", auth.For(ctx).CompanyID).Find(&invoice)
+	r.DB.Where(id).Where("company_id = ?", auth.For(ctx).CompanyID).Preload("LineItems").Find(&invoice)
+
+	if invoice.ID == 0 {
+		return "", fmt.Errorf("error processing invoice, does the invoice exist?")
+	}
 
 	notifyID := uuid.New()
 
@@ -166,7 +170,7 @@ func (r *mutationResolver) CreateInvoicePdf(ctx context.Context, id hide.ID) (st
 		},
 	})
 	if err != nil {
-		return "", fmt.Errorf("error processing invoice, does the invoice exist?")
+		return "", fmt.Errorf("error processing invoice, bad data")
 	}
 	r.MQ.RenderProducer.Produce(msg)
 	return notifyID.String(), nil

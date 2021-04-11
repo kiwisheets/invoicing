@@ -8,7 +8,7 @@ import (
 )
 
 type Invoice struct {
-	ID        hide.ID `gorm:"type: bigserial;primary_key" json:"id"` // int64
+	ID        hide.ID `gorm:"type: bigserial;primary_key" json:"Id"` // int64
 	CreatedAt time.Time
 	UpdatedAt time.Time
 	DeletedAt *time.Time
@@ -18,7 +18,7 @@ type Invoice struct {
 	ClientID  hide.ID
 	DateDue   time.Time
 
-	LineItems []LineItem `json:"items"`
+	LineItems []LineItem `json:"Items"`
 }
 
 type InvoiceRenderMQ struct {
