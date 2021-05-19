@@ -29,6 +29,9 @@ func Server() *Config {
 			Password:       goenv.MustGetSecretFromEnv("POSTGRES_PASSWORD"),
 			Database:       goenv.MustGet("POSTGRES_DB"),
 			MaxConnections: goenv.CanGetInt32("POSTGRES_MAX_CONNECTIONS", 20),
+			SSLMode:        goenv.CanGet("POSTGRES_SSLMODE", "disable"),
+			SSLCAPath:      goenv.CanGet("POSTGRES_SSL_CA_PATH", ""),
+			Options:        goenv.CanGet("POSTGRES_OPTIONS", ""),
 		},
 		GqlClient: util.ClientConfig{
 			BaseURL:        goenv.MustGet("GQL_SERVER_URL"),

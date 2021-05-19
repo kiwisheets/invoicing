@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"strconv"
 	"sync"
-	"time"
 
 	"github.com/emvi/hide"
 	"github.com/google/uuid"
@@ -20,6 +19,7 @@ import (
 	"github.com/kiwisheets/util"
 	"github.com/maxtroughear/logrusextension"
 	"github.com/newrelic/go-agent/v3/newrelic"
+	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -48,18 +48,48 @@ func (r *invoiceResolver) Client(ctx context.Context, obj *model.Invoice) (*mode
 	}, nil
 }
 
-func (r *invoiceResolver) Items(ctx context.Context, obj *model.Invoice) ([]*model.LineItem, error) {
-	lineItems := make([]*model.LineItem, 0)
-	r.DB.Where("invoice_id = ?", obj.ID).Find(&lineItems)
-	return lineItems, nil
+func (r *invoiceResolver) SubTotal(ctx context.Context, obj *model.Invoice) (float64, error) {
+	panic(fmt.Errorf("not implemented"))
+}
+
+func (r *invoiceResolver) TotalTax(ctx context.Context, obj *model.Invoice) (float64, error) {
+	tax := decimal.NewFromInt(0)
+	for _, item := range obj.LineItems {
+		tax = tax.Add(item.Tax())
+	}
+
+	taxFloat, _ := tax.RoundBank(2).Float64()
+	return taxFloat, nil
 }
 
 func (r *invoiceResolver) Total(ctx context.Context, obj *model.Invoice) (float64, error) {
-	panic(fmt.Errorf("not implemented"))
+	total := decimal.NewFromInt(0)
+	for _, item := range obj.LineItems {
+		total = total.Add(item.Total())
+	}
+
+	totalFloat, _ := total.Float64()
+	return totalFloat, nil
+}
+
+func (r *lineItemResolver) UnitCost(ctx context.Context, obj *model.LineItem) (float64, error) {
+	f, _ := obj.UnitCost.Float64()
+	return f, nil
+}
+
+func (r *lineItemResolver) TaxRate(ctx context.Context, obj *model.LineItem) (float64, error) {
+	f, _ := obj.TaxRate.Float64()
+	return f, nil
+}
+
+func (r *lineItemResolver) Tax(ctx context.Context, obj *model.LineItem) (float64, error) {
+	f, _ := obj.Tax().Float64()
+	return f, nil
 }
 
 func (r *lineItemResolver) Total(ctx context.Context, obj *model.LineItem) (float64, error) {
-	panic(fmt.Errorf("not implemented"))
+	totalFloat, _ := obj.Total().Float64()
+	return totalFloat, nil
 }
 
 func (r *mutationResolver) CreateInvoice(ctx context.Context, invoice model.InvoiceInput) (*model.Invoice, error) {
@@ -69,8 +99,13 @@ func (r *mutationResolver) CreateInvoice(ctx context.Context, invoice model.Invo
 			Description: l.Description,
 			Name:        l.Name,
 			Quantity:    l.Quantity,
-			TaxRate:     l.TaxRate,
-			UnitCost:    l.UnitCost,
+			UnitCost:    decimal.NewFromFloat(l.UnitCost),
+		}
+
+		if l.TaxRate != nil {
+			lineItems[i].TaxRate = decimal.NewFromFloat(*l.TaxRate)
+		} else {
+			lineItems[i].TaxRate = decimal.NewFromFloat(model.DefaultTaxRate(ctx, r.DB, r.GqlClient, auth.For(ctx).CompanyID))
 		}
 
 		if l.TaxInclusive != nil {
@@ -91,7 +126,11 @@ func (r *mutationResolver) CreateInvoice(ctx context.Context, invoice model.Invo
 		DateDue: invoice.DateDue,
 	}
 
-	r.DB.Exec("CREATE SEQUENCE IF NOT EXISTS invoice_number_" + strconv.FormatInt(int64(auth.For(ctx).CompanyID), 10) + " AS BIGINT INCREMENT 1 START 1 OWNED BY invoices.number")
+	log := logrusextension.From(ctx)
+	log.Debugln("creating sequence")
+	if err := r.DB.Exec("CREATE SEQUENCE IF NOT EXISTS invoice_number_" + strconv.FormatInt(int64(auth.For(ctx).CompanyID), 10) + " INCREMENT 1 START 1 OWNED BY invoices.number").Error; err != nil {
+		log.Errorf("create sequence error %v", err)
+	}
 
 	if err := r.DB.Debug().Clauses(clause.Returning{
 		Columns: []clause.Column{
@@ -115,8 +154,13 @@ func (r *mutationResolver) UpdateInvoice(ctx context.Context, id hide.ID, invoic
 			Description: l.Description,
 			Name:        l.Name,
 			Quantity:    l.Quantity,
-			TaxRate:     l.TaxRate,
-			UnitCost:    l.UnitCost,
+			UnitCost:    decimal.NewFromFloat(l.UnitCost),
+		}
+
+		if l.TaxRate != nil {
+			lineItems[i].TaxRate = decimal.NewFromFloat(*l.TaxRate)
+		} else {
+			lineItems[i].TaxRate = decimal.NewFromFloat(model.DefaultTaxRate(ctx, r.DB, r.GqlClient, auth.For(ctx).CompanyID))
 		}
 
 		if l.TaxInclusive != nil {
@@ -192,10 +236,9 @@ func (r *mutationResolver) UpdateCompanyTaxInclusive(ctx context.Context, invoic
 func (r *queryResolver) Invoice(ctx context.Context, id hide.ID) (*model.Invoice, error) {
 	var invoice model.Invoice
 
-	if err := r.DB.Where(id).Where("company_id = ?", auth.For(ctx).CompanyID).Find(&invoice).Error; err != nil {
+	if err := r.DB.Where(id).Where("company_id = ?", auth.For(ctx).CompanyID).Preload("LineItems").Find(&invoice).Error; err != nil {
 		return nil, fmt.Errorf("invoice not found")
 	}
-	invoice.DateDue = time.Now()
 	return &invoice, nil
 }
 
@@ -205,11 +248,7 @@ func (r *queryResolver) Invoices(ctx context.Context, page *int) ([]*model.Invoi
 	if page == nil {
 		page = util.Int(0)
 	}
-	r.DB.Where("company_id = ?", auth.For(ctx).CompanyID).Limit(limit).Offset(limit * *page).Find(&invoices)
-
-	for i := range invoices {
-		invoices[i].DateDue = time.Now()
-	}
+	r.DB.Where("company_id = ?", auth.For(ctx).CompanyID).Limit(limit).Offset(limit * *page).Preload("LineItems").Find(&invoices)
 
 	return invoices, nil
 }

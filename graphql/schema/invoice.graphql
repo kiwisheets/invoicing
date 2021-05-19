@@ -17,9 +17,11 @@ type Invoice {
   number: String!
   createdBy: User!
   client: Client!
-  items: [LineItem!]! @goField(forceResolver: true)
+  items: [LineItem!]!
   dateDue: Time!
 
+  subTotal: Float!
+  totalTax: Float!
   total: Float!
 }
 
@@ -30,6 +32,7 @@ type LineItem {
   taxRate: Float!
   quantity: Float!
   taxInclusive: Boolean!
+  tax: Float!
   total: Float!
 }
 

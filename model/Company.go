@@ -37,6 +37,8 @@ type Company struct {
 	ShippingAddress Address `gorm:"polymorphic:Addressee;polymorphicValue:company_shipping"`
 
 	InvoiceTaxInclusive bool `json:"invoiceTaxInclusive"`
+
+	InvoiceTaxRate float64 `json:"invoiceTaxRate"`
 }
 
 func (Company) IsEntity() {}
